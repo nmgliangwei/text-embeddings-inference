@@ -19,7 +19,6 @@ from text_embeddings_server.models.types import FlashBatch, PaddedBatch, Embeddi
 from text_embeddings_server.utils.flash_attn import attention
 
 tracer = trace.get_tracer(__name__)
-from loguru import logger
 
 def load_weight(model_path, weight_map, prefix, name, dtype, device):
     """
@@ -37,69 +36,26 @@ def load_weight(model_path, weight_map, prefix, name, dtype, device):
             return f.get_tensor(name).to(dtype).to(device)
 
 
-def rotate_half(x):
-    """Rotates half the hidden dims of the input."""
-    x1 = x[..., : x.shape[-1] // 2]
-    x2 = x[..., x.shape[-1] // 2 :]
-    return torch.cat((-x2, x1), dim=-1)
+def apply_rotary_pos_emb_npu(q, k, cos, sin):
+    q_is_tnd = q.dim() == 3
+    k_is_tnd = k.dim() == 3
+    if q_is_tnd:
+        q = q.unsqueeze(0)
+    if k_is_tnd:
+        k = k.unsqueeze(0)
 
+    head_dim = q.shape[-1]
+    cos = cos.reshape(1, -1, 1, head_dim).to(device=q.device, dtype=q.dtype)
+    sin = sin.reshape(1, -1, 1, head_dim).to(device=q.device, dtype=q.dtype)
 
-def apply_rotary_pos_emb(q, k, cos, sin, unsqueeze_dim=1):
-    cos = cos.unsqueeze(unsqueeze_dim)
-    sin = sin.unsqueeze(unsqueeze_dim)
-    q_embed = (q * cos) + (rotate_half(q) * sin)
-    k_embed = (k * cos) + (rotate_half(k) * sin)
-    return q_embed, k_embed
- 
-def apply_rotary_pos_emb_npu(q, k, cos, sin, unsqueeze_dim=1):
-        
-    enable_fp32_compute = False
-    def _pre_process(
-        x: torch.Tensor,
-        cos: torch.Tensor,
-        sin: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Size, torch.dtype]:
-            origin_shape = x.shape
-            if len(origin_shape) == 3:
-                # x: [seq_len, num_heads, head_size]
-                x = x.unsqueeze(0)
+    q = torch_npu.npu_rotary_mul(q, cos, sin)
+    k = torch_npu.npu_rotary_mul(k, cos, sin)
 
-            origin_dtype = x.dtype
-            if enable_fp32_compute:
-                x = x.float()
-                cos = cos.float()
-                sin = sin.float()
-
-            return x, cos, sin, origin_shape, origin_dtype
-        
-    def _post_process(
-        output: torch.Tensor,
-        origin_shape: torch.Size,
-        origin_dtype: torch.dtype,
-    ) -> torch.Tensor:
-        if len(origin_shape) == 3:
-            output = output.squeeze(0)
-        if enable_fp32_compute:
-            output = output.to(origin_dtype)
-        return output
-    
-    # q_ [1, seq_len, num_heads, head_size]
-    # k_ [1, seq_len, num_heads // 2, head_size]
-    q_, cos, sin, q_origin_shape, q_origin_dtype = _pre_process(q, cos, sin)
-    k_, cos, sin, k_origin_shape, k_origin_dtype = _pre_process(k, cos, sin)
-    
-    head_dim = q_.shape[-1]
-
-    # cos, sin: [1, seq_len, 1, head_dim]
-    cos = cos.reshape(1, -1, 1, head_dim)
-    sin = sin.reshape(1, -1, 1, head_dim)
-    output_q = torch_npu.npu_rotary_mul(q_, cos, sin)
-    output_k = torch_npu.npu_rotary_mul(k_, cos, sin)
-
-    output_q = _post_process(output_q, q_origin_shape, q_origin_dtype)
-    output_k = _post_process(output_k, k_origin_shape, k_origin_dtype)
-
-    return output_q, output_k
+    if q_is_tnd:
+        q = q.squeeze(0)
+    if k_is_tnd:
+        k = k.squeeze(0)
+    return q, k
 
 
 def compute_default_rope_parameters(
@@ -182,7 +138,6 @@ class Qwen3Attention:
         self.num_heads = config.num_attention_heads
         self.head_dim = config.head_dim
         self.num_key_value_heads = config.num_key_value_heads
-        self.num_key_value_groups = self.num_heads // self.num_key_value_heads
         self.softmax_scale = self.head_dim**-0.5
         self.q_proj_weight = load_weight(
             model_path,
@@ -207,9 +162,6 @@ class Qwen3Attention:
             f"layers.{layer_idx}.self_attn.v_proj.weight",
             dtype,
             device,
-        )
-        self.qkv_weight = (
-            torch.cat([self.q_proj_weight, self.k_proj_weight, self.v_proj_weight]).to(dtype).to(device)
         )
         self.o_proj_weight = load_weight(
             model_path,
@@ -237,22 +189,45 @@ class Qwen3Attention:
             dtype,
             eps=config.rms_norm_eps,
         )
+        # Q/K/V projections are forced into grouped matmul for peak throughput.
+        self._grouped_qkv_weights = [
+            self.q_proj_weight.transpose(0, 1).contiguous(),
+            self.k_proj_weight.transpose(0, 1).contiguous(),
+            self.v_proj_weight.transpose(0, 1).contiguous(),
+        ]
+
+    def _project_qkv(self, hidden_states):
+        hidden_states = hidden_states.contiguous()
+        qkv_outputs = torch_npu.npu_grouped_matmul(
+            [hidden_states, hidden_states, hidden_states],
+            self._grouped_qkv_weights,
+            group_type=-1,
+            split_item=0,
+        )
+        return qkv_outputs[0], qkv_outputs[1], qkv_outputs[2]
 
     def forward(
         self, hidden_states, position_embeddings, cu_seqlens, max_s, attn_mask=None
     ):
         input_shape = hidden_states.shape[:-1]
+        try:
+            q_proj, k_proj, v_proj = self._project_qkv(hidden_states)
+        except Exception as exc:  # npu matmul can fail if shapes/device mismatch
+            raise RuntimeError("Qwen3Attention: QKV projection failed") from exc
+        if q_proj is None or k_proj is None or v_proj is None:
+            raise ValueError("Qwen3Attention: QKV projection returned invalid tensors")
 
         q = self.q_norm.forward(
-            torch_npu.npu_linear(hidden_states, self.q_proj_weight).view(*input_shape, self.num_heads, self.head_dim)
+            q_proj.reshape(*input_shape, self.num_heads, self.head_dim)
         )
+
         k = self.k_norm.forward(
-            torch_npu.npu_linear(hidden_states, self.k_proj_weight).view(*input_shape, self.num_key_value_heads, self.head_dim)
+            k_proj.reshape(*input_shape, self.num_key_value_heads, self.head_dim)
         )
         v = torch_npu.npu_linear(hidden_states, self.v_proj_weight).view(*input_shape, self.num_key_value_heads, self.head_dim)
         
         cos, sin = position_embeddings
-        q, k = apply_rotary_pos_emb_npu(q, k, cos, sin, unsqueeze_dim=1)
+        q, k = apply_rotary_pos_emb_npu(q, k, cos, sin)
 
         attn_output = attention(
             q,
@@ -300,6 +275,7 @@ class Qwen3MLP:
             dtype,
             device,
         )
+        self.gate_up_proj_weight = torch.cat([self.gate_proj_weight, self.up_proj_weight], dim=0)
         self.down_proj_weight = load_weight(
             model_path,
             weight_map,
@@ -308,15 +284,16 @@ class Qwen3MLP:
             dtype,
             device,
         )
-        self.act_fn = ACT2FN[config.hidden_act]
-
 
     def forward(self, hidden_state):
-        gated_hidden_states = torch_npu.npu_linear(hidden_state, self.gate_proj_weight)
-        
-        uped_hidden_states = torch_npu.npu_linear(hidden_state, self.up_proj_weight)
+        gate_up_states = torch_npu.npu_linear(
+            hidden_state,
+            self.gate_up_proj_weight,
+        )
+        hidden_states = torch_npu.npu_swiglu(gate_up_states, dim=-1)
+
         return torch_npu.npu_linear(
-            self.act_fn(gated_hidden_states) * uped_hidden_states,
+            hidden_states,
             self.down_proj_weight,
         )
 
@@ -638,3 +615,4 @@ class FlashQwen3(Model):
         )
 
         return [Score(values=[p.item()]) for p in logits]
+    
