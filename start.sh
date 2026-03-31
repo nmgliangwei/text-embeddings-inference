@@ -18,12 +18,6 @@ sleep 3
 source /usr/local/Ascend/ascend-toolkit/set_env.sh
 export PATH="/home/HwHiAiUser/.cargo/bin:$PATH"
 
-if [[ -n $(id | grep uid=0) ]];then
-    source /usr/local/Ascend/mxRag/script/set_env.sh
-else
-    source /home/HwHiAiUser/Ascend/mxRag/script/set_env.sh
-fi
-
 function check_model_exists() {
     if [[ ! -e "${MODEL_DIR}/${MODEL_ID##*/}/config.json" ]]; then
         echo "Model '${MODEL_DIR}/${MODEL_ID##*/}' does not exist."
