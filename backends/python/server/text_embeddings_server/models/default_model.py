@@ -68,6 +68,15 @@ class DefaultModel(Model):
             sparse_model_path = os.path.join(model_path, "sparse_linear.pt")
             sparse_state_dict = torch.load(sparse_model_path, map_location="cpu", weights_only=True)
             self.sparse_linear.load_state_dict(sparse_state_dict)
+            
+            unused_token_ids = [
+                self.tokenizer.cls_token_id,
+                self.tokenizer.eos_token_id,
+                self.tokenizer.pad_token_id,
+                self.tokenizer.unk_token_id
+            ]
+            self.unused_token_ids = [tid for tid in unused_token_ids if tid is not None]
+            self.unused_token_ids_tensor = torch.tensor(self.unused_token_ids, dtype=torch.long)
         else:
             self.pooling = DefaultPooling(self.hidden_size, pooling_mode=pool)
                 
@@ -91,27 +100,28 @@ class DefaultModel(Model):
             return self._process_default(batch, kwargs)
 
     def _process_splade(self, batch: PaddedBatch, kwargs: dict):
+        batch_size = len(batch)
         with torch.no_grad():
             last_hidden_state = self.model(**kwargs, return_dict=True).last_hidden_state
         sparse_vecs = torch.relu(self.sparse_linear(last_hidden_state))
-        token_weights = sparse_vecs.squeeze(-1)
-        unused_tokens = {self.tokenizer.cls_token_id, self.tokenizer.eos_token_id, self.tokenizer.pad_token_id,
-                         self.tokenizer.unk_token_id}
-        all_token_weights = torch.zeros((len(batch), self.vocab_size), dtype=token_weights.dtype, device=token_weights.device)
+        token_weights = sparse_vecs.squeeze(-1).cpu()
         
-        for i in range(len(batch)):
-            all_token_weights[i, batch.input_ids[i]] = token_weights[i]
+        all_token_weights = torch.zeros(
+            (batch_size, self.vocab_size),
+            dtype=token_weights.dtype
+        )
+        all_token_weights.scatter_(
+            1,
+            batch.input_ids.cpu(),
+            token_weights
+        )
         
-        all_token_weights[:, list(unused_tokens)] = 0
+        if self.unused_token_ids_tensor.numel() > 0:
+            all_token_weights[:, self.unused_token_ids_tensor] = 0
         
-        embeddings = [
-            Embedding(
-                values=all_token_weights[i].detach().cpu().numpy().tolist()
-            )
-            for i in range(len(batch))
-        ]
+        cpu_weights = all_token_weights.detach().cpu().numpy()
         
-        return embeddings
+        return [Embedding(values=cpu_weights[i].tolist()) for i in range(batch_size)]
     
     def _process_default(self, batch: PaddedBatch, kwargs: dict):
         if IS_CAUSAL in ["false", "0"]:
@@ -140,14 +150,11 @@ class DefaultModel(Model):
             kwargs["position_ids"] = batch.position_ids
         output = self.model(**kwargs)
         embedding = output[0].contiguous()
-        cpu_results = embedding.view(-1).tolist()
+        cpu_results = embedding.tolist()
+        seq_lengths = [batch.cu_seq_lengths[i+1] - batch.cu_seq_lengths[i] for i in range(len(batch.cu_seq_lengths)-1)]
         embedding_result=[]
         for i in range(len(batch)):
-            embedding_tmp=[
-                Embedding(values=cpu_results[(j+i * batch.max_length) * self.hidden_size :
-                                             (j + 1 + i * batch.max_length) * self.hidden_size])
-                for j in range(batch.input_ids.size()[1])
-            ]
+            embedding_tmp=[Embedding(values=cpu_results[i][j]) for j in range(seq_lengths[i])]
             token_embeddings=TokenEmbedding(embeddings=embedding_tmp)
             embedding_result.append(token_embeddings)
 

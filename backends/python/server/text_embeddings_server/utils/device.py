@@ -73,9 +73,7 @@ def get_device():
         torch.npu.set_compile_mode(jit_compile=False)
         option = {"NPU_FUZZY_COMPILE_BLACKLIST": "ReduceProd"}
         torch.npu.set_option(option)
-        deviceIdx = os.environ.get('TEI_NPU_DEVICE')
-        if deviceIdx != None and deviceIdx.isdigit() and int(deviceIdx) >= 0 and int(deviceIdx) <= 7:
-            torch.npu.set_device(torch.device(f"npu:{deviceIdx}"))
+        torch.npu.set_device(torch.device("npu:0"))
     elif is_hpu():
         import habana_frameworks.torch.core as htcore
 

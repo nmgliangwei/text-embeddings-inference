@@ -42,7 +42,7 @@ class EmbeddingService(embed_pb2_grpc.EmbeddingServiceServicer):
 
         return embed_pb2.EmbedResponse(embeddings=embeddings)
 
-    async def Embed_all(self, request, context):
+    async def EmbedAll(self, request, context):
         max_input_length = self.model.max_input_length
         batch = self.model.batch_type.from_pb(request, self.model.device, max_input_length)
 
@@ -51,7 +51,7 @@ class EmbeddingService(embed_pb2_grpc.EmbeddingServiceServicer):
         if clean_npu_cache == "True":
             torch_npu.npu.empty_cache()
             
-        return embed_pb2.RawEmbedResponse(allembeddings=embeddings)
+        return embed_pb2.RawEmbedResponse(all_embeddings=embeddings)
     
     async def Predict(self, request, context):
         max_input_length = self.model.max_input_length

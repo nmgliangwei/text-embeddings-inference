@@ -5,7 +5,6 @@ import json
 import itertools
 from pathlib import Path
 from torch import nn
-import torch.nn.functional as F
 from typing import List, Union, Optional
 from safetensors import safe_open
 from transformers.activations import ACT2FN
@@ -18,7 +17,10 @@ from text_embeddings_server.models.pooling import DefaultPooling
 from text_embeddings_server.models.types import FlashBatch, PaddedBatch, Embedding, Score
 from text_embeddings_server.utils.flash_attn import attention
 
+
 tracer = trace.get_tracer(__name__)
+
+IS_RERANK = os.getenv("IS_RERANK", "false").lower() in ["true", "1"]
 
 def load_weight(model_path, weight_map, prefix, name, dtype, device):
     """
@@ -195,6 +197,7 @@ class Qwen3Attention:
             self.k_proj_weight.transpose(0, 1).contiguous(),
             self.v_proj_weight.transpose(0, 1).contiguous(),
         ]
+        self.is_310p = torch.npu.get_device_name().lower().find("310p") != -1
 
     def _project_qkv(self, hidden_states):
         hidden_states = hidden_states.contiguous()
@@ -210,21 +213,21 @@ class Qwen3Attention:
         self, hidden_states, position_embeddings, cu_seqlens, max_s, attn_mask=None
     ):
         input_shape = hidden_states.shape[:-1]
-        try:
-            q_proj, k_proj, v_proj = self._project_qkv(hidden_states)
-        except Exception as exc:  # npu matmul can fail if shapes/device mismatch
-            raise RuntimeError("Qwen3Attention: QKV projection failed") from exc
-        if q_proj is None or k_proj is None or v_proj is None:
-            raise ValueError("Qwen3Attention: QKV projection returned invalid tensors")
-
-        q = self.q_norm.forward(
-            q_proj.reshape(*input_shape, self.num_heads, self.head_dim)
-        )
-
-        k = self.k_norm.forward(
-            k_proj.reshape(*input_shape, self.num_key_value_heads, self.head_dim)
-        )
-        v = torch_npu.npu_linear(hidden_states, self.v_proj_weight).view(*input_shape, self.num_key_value_heads, self.head_dim)
+        if self.is_310p:
+            q = self.q_norm.forward(
+                torch_npu.npu_linear(hidden_states, self.q_proj_weight).view(*input_shape, self.num_heads, self.head_dim)
+            )
+            k = self.k_norm.forward(
+                torch_npu.npu_linear(hidden_states, self.k_proj_weight).view(*input_shape, self.num_key_value_heads, self.head_dim)
+            )
+            v = torch_npu.npu_linear(hidden_states, self.v_proj_weight).view(*input_shape, self.num_key_value_heads, self.head_dim)
+        else:
+            q_proj, k_proj, _ = self._project_qkv(hidden_states)
+      
+            q = self.q_norm.forward(q_proj.reshape(*input_shape, self.num_heads, self.head_dim))
+            k = self.k_norm.forward(
+            k_proj.reshape(*input_shape, self.num_key_value_heads, self.head_dim))
+            v = torch_npu.npu_linear(hidden_states, self.v_proj_weight).view(*input_shape, self.num_key_value_heads, self.head_dim)
         
         cos, sin = position_embeddings
         q, k = apply_rotary_pos_emb_npu(q, k, cos, sin)
@@ -503,21 +506,42 @@ class ForSequenceClassification(nn.Module):
             prev_end = end
         cu_seqlens_list_new = list(itertools.accumulate(seqlens_list_new))
         
-        input_ids_list_new_tensor = torch.tensor(input_ids_list_new, device=input_ids.device)
-        cu_seqlens_list_new_tensor = torch.tensor(cu_seqlens_list_new, device=cu_seqlens.device)
-        position_ids_list_tensor = torch.tensor(position_ids_list, device=input_ids.device)
+        input_ids_list_new_tensor = torch.tensor(input_ids_list_new, device=input_ids.device, dtype=torch.int32)
+        cu_seqlens_list_new_tensor = torch.tensor(cu_seqlens_list_new, device=cu_seqlens.device, dtype=torch.int32)
+        position_ids_list_tensor = torch.tensor(position_ids_list, device=input_ids.device, dtype=torch.int32)
         
+        # 将总长度向上补齐到能被 16 整除
+        total_length = cu_seqlens_list_new[-1]
+        padding_length = (16 - (total_length % 16)) % 16
+        max_length = max(seqlens_list_new)
+        size = len(cu_seqlens_list_new) - 1
+        
+        need_padding = torch.npu.get_device_name().lower().find("310p") != -1 and IS_RERANK
+        if padding_length > 0 and need_padding:
+            # 补齐 input_ids
+            padding_input_ids = torch.zeros(padding_length, dtype=torch.int32, device=input_ids.device)
+            input_ids_list_new_tensor = torch.cat([input_ids_list_new_tensor, padding_input_ids], dim=0)
+            
+            # 补齐 position_ids
+            padding_position_ids = torch.zeros(padding_length, dtype=torch.int32, device=input_ids.device)
+            position_ids_list_tensor = torch.cat([position_ids_list_tensor, padding_position_ids], dim=0)
+            
+            # 补齐 cu_seqlens
+            padding_cu_seqlens = torch.tensor([total_length + padding_length], dtype=torch.int32, device="cpu")
+            cu_seqlens_list_new_tensor = torch.cat([cu_seqlens_list_new_tensor, padding_cu_seqlens], dim=0)
+            
+            max_length = max(max_length, padding_length)
         output = self.model.forward(input_ids_list_new_tensor,
                 position_ids_list_tensor,
                 cu_seqlens_list_new_tensor,
-                max_s,
+                max_length,
                 mask,
                 attn_mask)
-        
-        last_token_indices = cu_seqlens_list_new_tensor[1:] - 1
+
+        last_token_indices = cu_seqlens_list_new_tensor[1:size + 1] - 1
         hidden_states = output.last_hidden_state
-        
-        logits = torch_npu.npu_linear(hidden_states[last_token_indices], self.word_embeddings_weight).cpu() 
+
+        logits = torch_npu.npu_linear(hidden_states[last_token_indices], self.word_embeddings_weight).cpu()
         true_logits = logits[:, self.token_true_id]
         false_logits = logits[:, self.token_false_id]
         logit_diff = true_logits - false_logits
@@ -548,7 +572,7 @@ class FlashQwen3(Model):
         else:
             weight_map = None
             
-        if os.getenv("IS_RERANK", None):
+        if IS_RERANK:
             model = ForSequenceClassification(model_path, weight_map, "model", device, dtype, config, tokenizer)
         else:    
             model = FlashQwen3Model(model_path, weight_map, "", device, dtype, config)
