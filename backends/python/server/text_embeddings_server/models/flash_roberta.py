@@ -222,12 +222,13 @@ class FlashRoberta(Model):
             mask=mask,
             attn_mask=attn_mask,
         )
+ 
         embedding = all_embedding[cu_seqlens[:-1]]
-        cpu_results = embedding.view(-1).tolist()
+        cpu_results = embedding.cpu().numpy()
 
         return [
             Embedding(
-                values=cpu_results[i * self.hidden_size : (i + 1) * self.hidden_size]
+                values=cpu_results[i].tolist()
             )
             for i in range(len(batch))
         ]
@@ -254,12 +255,14 @@ class FlashRoberta(Model):
         )
         
         seqlens = cu_seqlens[1:] - cu_seqlens[:-1]
+        seqlens_list = seqlens.tolist()
         cpu_results = all_embedding.tolist()
         embedding_result=[]
+        start = 0
         for i in range(batch_size):
             embedding_tmp=[
-                Embedding(values=cpu_results[j])
-                for j in range(seqlens.tolist()[i])
+                Embedding(values=cpu_results[start + j])
+                for j in range(seqlens_list[i])
             ]
             token_embeddings=TokenEmbedding(embeddings=embedding_tmp)
             embedding_result.append(token_embeddings)

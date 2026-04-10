@@ -83,7 +83,7 @@ impl Client {
         })
         .inject_context();
         let response = self.stub.embed_all(request).await?.into_inner();
-        Ok(response.allembeddings)
+        Ok(response.all_embeddings)
     }
 
     #[instrument(skip_all)]

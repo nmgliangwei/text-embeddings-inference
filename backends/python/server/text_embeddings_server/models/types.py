@@ -12,7 +12,7 @@ from text_embeddings_server.pb.embed_pb2 import Embedding, Score, TokenEmbedding
 tracer = trace.get_tracer(__name__)
 PAD_SEQUENCE_TO_MULTIPLE_OF = int(os.environ.get("PAD_SEQUENCE_TO_MULTIPLE_OF", 128))
 SEQ_LEN_EXPONENT_BASE = int(os.environ.get("SEQ_LEN_EXPONENT_BASE", 2))
-
+IS_RERANK = os.getenv("IS_RERANK", "false").lower() in ["true", "1"]
 
 def round_up_seq(number, k, base):
     exponent = max(0, math.ceil(math.log(number / k, base)))
@@ -36,6 +36,7 @@ class PaddedBatch(Batch):
     token_type_ids: torch.Tensor
     position_ids: torch.Tensor
     attention_mask: torch.Tensor
+    cu_seq_lengths: list
     max_length: int
 
     @classmethod
@@ -83,6 +84,7 @@ class PaddedBatch(Batch):
             token_type_ids=all_tensors[1],
             position_ids=all_tensors[2],
             attention_mask=all_tensors[3],
+            cu_seq_lengths = pb.cu_seq_lengths,
             max_length=max_length,
         )
 
@@ -114,14 +116,40 @@ class FlashBatch(Batch):
         )
 
         cu_seqlens = torch.tensor(pb.cu_seq_lengths, dtype=torch.int32, device="cpu")
-
+        size = len(pb.cu_seq_lengths) - 1
+        
+        need_padding = torch.npu.get_device_name().lower().find("310p") != -1 and not IS_RERANK
+        
+        # 将总长度向上补齐到能被 16 整除
+        total_length = pb.cu_seq_lengths[-1]
+        padding_length = (16 - (total_length % 16)) % 16
+        max_length = pb.max_length
+        if padding_length > 0 and need_padding:
+            # 补齐 input_ids
+            padding_input_ids = torch.zeros(padding_length, dtype=torch.int32, device=device)
+            batch_input_ids = torch.cat([batch_input_ids, padding_input_ids], dim=0)
+            
+            # 补齐 token_type_ids
+            padding_token_type_ids = torch.zeros(padding_length, dtype=torch.int32, device=device)
+            batch_token_type_ids = torch.cat([batch_token_type_ids, padding_token_type_ids], dim=0)
+            
+            # 补齐 position_ids
+            padding_position_ids = torch.zeros(padding_length, dtype=torch.int32, device=device)
+            batch_position_ids = torch.cat([batch_position_ids, padding_position_ids], dim=0)
+            
+            # 补齐 cu_seqlens
+            padding_cu_seqlens = torch.tensor([total_length + padding_length], dtype=torch.int32, device="cpu")
+            cu_seqlens = torch.cat([cu_seqlens, padding_cu_seqlens], dim=0).to(torch.int32)
+            
+            max_length = max(pb.max_length, padding_length)
+            
         return FlashBatch(
             input_ids=batch_input_ids,
             token_type_ids=batch_token_type_ids,
             position_ids=batch_position_ids,
             cu_seqlens=cu_seqlens,
-            max_s=pb.max_length,
-            size=len(cu_seqlens) - 1,
+            max_s=max_length,
+            size=size,
         )
 
     def __len__(self):

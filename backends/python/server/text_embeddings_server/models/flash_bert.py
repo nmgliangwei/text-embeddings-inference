@@ -44,6 +44,11 @@ class FastLayerNorm:
         self.device = device
         self.use_ipex = use_ipex()
 
+        self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
+        self.LayerNorm.weight = nn.Parameter(self.weight)
+        self.LayerNorm.bias = nn.Parameter(self.bias)
+        self.is_310p = torch.npu.get_device_name().lower().find("310p") != -1
+        
     def forward(self, hidden_states, residual=None):
         # Flash attention imports
         normed_hidden_states = None
@@ -94,13 +99,23 @@ class FastLayerNorm:
             )
             res = residual if residual is not None else hidden_states
         elif self.device.type == "npu":
-            normed_hidden_states = torch_npu.npu_add_layer_norm(hidden_states, 
-                                                                residual, 
-                                                                self.weight,
-                                                                self.bias, 
-                                                                self.variance_epsilon,
-                                                                )[0]
-            res = residual if residual is not None else hidden_states
+            if self.is_310p:
+                if residual is not None:     
+                    normed_hidden_states = self.LayerNorm(hidden_states + residual)
+                else:
+                    normed_hidden_states = self.LayerNorm(hidden_states)
+                    
+                res = residual if residual is not None else hidden_states
+            else:
+                normed_hidden_states = torch_npu.npu_add_layer_norm(hidden_states, 
+                                                                    residual, 
+                                                                    self.weight,
+                                                                    self.bias, 
+                                                                    self.variance_epsilon,
+                                                                    )[0]
+                res = residual if residual is not None else hidden_states
+            
+            
         return normed_hidden_states, res
 
 
@@ -193,6 +208,7 @@ class BertAttention:
             max_s,
             self.softmax_scale,
             attn_mask=attn_mask,
+            num_key_value_heads=0,
         )
 
         hidden_states = torch_npu.npu_linear(
@@ -234,7 +250,7 @@ class BertLayer:
         )
 
         self.output_weight = (
-            handle.get_tensor(f"{prefix}.output.dense.weight").T.to(dtype).to(device)
+            handle.get_tensor(f"{prefix}.output.dense.weight").to(dtype).to(device)
         )
         self.output_bias = (
             handle.get_tensor(f"{prefix}.output.dense.bias").to(dtype).to(device)
@@ -252,7 +268,7 @@ class BertLayer:
             hidden_states, self.intermediate_weight, self.intermediate_bias
         )
         hidden_states = self.intermediate_act_fn(hidden_states)
-        hidden_states = torch_npu.npu_linear(hidden_states, self.output_weight.T, self.output_bias)
+        hidden_states = torch_npu.npu_linear(hidden_states, self.output_weight, self.output_bias)
         hidden_states, _ = self.layer_norm.forward(hidden_states, residual)
         return hidden_states
 
@@ -334,15 +350,15 @@ class BertForSequenceClassification(nn.Module):
             attn_mask=None,
             ):
 
-        sequence_output = self.bert(input_ids,
-            token_type_ids,
-            position_ids,
-            cu_seqlens,
-            max_s,
-            mask=None,
-            attn_mask=None)
+        sequence_output = self.bert.forward(input_ids,
+                                    token_type_ids,
+                                    position_ids,
+                                    cu_seqlens,
+                                    max_s,
+                                    mask=None,
+                                    attn_mask=None)
         embedding = sequence_output[cu_seqlens[:-1]]
-        logits =  self.classifier(embedding)
+        logits =  self.classifier.forward(embedding)
         return logits
     
 
@@ -430,7 +446,7 @@ class FlashBert(Model):
         attn_mask = None
         max_input_lens = batch.max_s
         batch_size = batch.size
-        
+
         all_embedding = self.model.forward(
             input_ids=batch.input_ids,
             token_type_ids=batch.token_type_ids,
@@ -442,13 +458,16 @@ class FlashBert(Model):
         )
 
         seqlens = cu_seqlens[1:] - cu_seqlens[:-1]
+        seqlens_list = seqlens.tolist()
         cpu_results = all_embedding.tolist()
         embedding_result=[]
+        start = 0
         for i in range(batch_size):
             embedding_tmp=[
-                Embedding(values=cpu_results[j])
-                for j in range(seqlens.tolist()[i])
+                Embedding(values=cpu_results[start + j])
+                for j in range(seqlens_list[i])
             ]
+            start += seqlens_list[i]
             token_embeddings=TokenEmbedding(embeddings=embedding_tmp)
             embedding_result.append(token_embeddings)
 
