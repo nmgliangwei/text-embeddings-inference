@@ -58,50 +58,38 @@ class AttentionMaskBuilder:
         # return: (1, 2, 16, 16)
         return self._custom_transpose(
             self._custom_reshape(self._custom_pad(in_tensor, pad_dims), aux_dims), 1, 2).contiguous()
-    
 
     def get_npu_attn_mask_no_causal(self, max_seq_len: int, dtype: torch.dtype, device: torch.device):
         if self.max_seq_len >= max_seq_len:
             return self.attn_mask_cache
-        
+
         self.max_seq_len = max_seq_len
         attn_mask_npu_cache = torch.zeros(size=(max_seq_len, max_seq_len), dtype=dtype, device=device)
         attn_mask_npu_cache = self._nd_to_nz_2d(attn_mask_npu_cache)
         attn_mask_npu_cache = torch_npu.npu_format_cast(attn_mask_npu_cache.contiguous(), 29)
-        
+
         self.max_seq_len = max_seq_len
         self.attn_mask_cache = attn_mask_npu_cache
-        
+
         return self.attn_mask_cache
-    
+
     def get_npu_attn_mask_causal(self, max_seq_len: int, dtype: torch.dtype, device: torch.device):
         if self.max_seq_len >= max_seq_len:
             return self.attn_mask_cache
 
-        # Construct lower triangle matrix.
-        mask_flag = torch.tril(
-            torch.ones((max_seq_len, max_seq_len),
-                    dtype=torch.bool)).view(max_seq_len, max_seq_len)
-        # Create upper triangle matrix used to mark mask positions.
-        mask_flag = ~mask_flag
-        # Currently for fp16 dtype, the mask value should be set to -inf.
-        # TODO: Eliminate this part in the future.
-        if dtype == torch.float16:
-            mask_value = torch.finfo(torch.float32).min
-        else:
-            mask_value = 1
+        tril = torch.ones((max_seq_len, max_seq_len), dtype=torch.bool, device=device).tril_()
+        upper = ~tril
+        attn_mask_npu = torch.zeros((max_seq_len, max_seq_len), dtype=dtype, device=device)
+        attn_mask_npu.masked_fill_(upper, float("-inf"))
 
-        attn_mask_npu_cache = torch.masked_fill(torch.zeros(size=(max_seq_len, max_seq_len)),
-                                    mask_flag, mask_value).to(dtype).to(device)
-        
-        attn_mask_npu_cache = self._nd_to_nz_2d(attn_mask_npu_cache)
-        attn_mask_npu_cache = torch_npu.npu_format_cast(attn_mask_npu_cache.contiguous(), 29)
-        
+        attn_mask_npu = self._nd_to_nz_2d(attn_mask_npu)
+        attn_mask_npu = torch_npu.npu_format_cast(attn_mask_npu.contiguous(), 29)
+
         self.max_seq_len = max_seq_len
-        self.attn_mask_cache = attn_mask_npu_cache
-        
+        self.attn_mask_cache = attn_mask_npu
+
         return self.attn_mask_cache
-        
+
     def get_npu_attn_mask_310p(self, max_seq_len: int, dtype: torch.dtype, device: torch.device, causal: bool = False):
         if causal:
             return self.get_npu_attn_mask_causal(max_seq_len, dtype, device)
@@ -115,6 +103,10 @@ class AttentionMaskBuilder:
             else:
                 self.attn_mask_cache = torch.triu(torch.ones((2048, 2048), dtype=torch.bool, device=device), diagonal=1)
         else:
-            self.attn_mask_cache = None
-            
+            if self.attn_mask_cache is not None and self.max_seq_len >= max_seq_len:
+                return self.attn_mask_cache
+
+            self.max_seq_len = max_seq_len
+            self.attn_mask_cache = torch.zeros((1, max_seq_len, max_seq_len), device=device, dtype=torch.bool)
+
         return self.attn_mask_cache
