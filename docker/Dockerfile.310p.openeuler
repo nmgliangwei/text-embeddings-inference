@@ -1,0 +1,56 @@
+ARG CANN_VERSION=9.0.0-beta.2
+FROM swr.cn-south-1.myhuaweicloud.com/ascendhub/cann:${CANN_VERSION}-310p-openeuler24.03-py3.11
+
+ARG PIP_INDEX_URL="https://mirrors.aliyun.com/pypi/simple"
+
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    export TZ=Asia/Shanghai && \
+    for repo in /etc/yum.repos.d/*.repo; do \
+        cp $repo ${repo}.bak; \
+        sed -i 's|http://repo.openeuler.org|https://repo.huaweicloud.com/openeuler|g' $repo; \
+        sed -i 's|https://repo.openeuler.org|https://repo.huaweicloud.com/openeuler|g' $repo; \
+        sed -i '/^metalink=/ s/^/#/' $repo; \
+        sed -i '/^mirrorlist=/ s/^/#/' $repo; \
+    done && \
+    yum update -y && \
+    yum install -y curl wget git git-lfs ca-certificates openssl-devel zlib zlib-devel unzip \
+        tar gcc make cmake libffi libffi-devel g++ pkg-config protobuf-compiler vim && \
+    yum clean all && \
+    rm -rf /var/cache/yum
+    
+RUN groupadd HwHiAiUser && useradd -g HwHiAiUser -d /home/HwHiAiUser -m HwHiAiUser -s /bin/bash
+
+USER HwHiAiUser:HwHiAiUser
+
+WORKDIR /home/HwHiAiUser
+#安装RUST
+ENV RUSTUP_DIST_SERVER=https://mirrors.ustc.edu.cn/rust-static
+ENV RUSTUP_UPDATE_ROOT=https://mirrors.ustc.edu.cn/rust-static/rustup
+RUN curl https://sh.rustup.rs -sSf | bash -s -- -y --no-update-default-toolchain
+
+RUN mkdir -p $HOME/.cargo && \
+    echo '[source.crates-io]' > $HOME/.cargo/config.toml && \
+    echo 'replace-with = "ustc"' >> $HOME/.cargo/config.toml && \
+    echo '[source.ustc]' >> $HOME/.cargo/config.toml && \
+    echo 'registry = "https://mirrors.ustc.edu.cn/crates.io-index"' >> $HOME/.cargo/config.toml && \
+    echo '[registries.ustc]' >> $HOME/.cargo/config.toml && \
+    echo 'index = "https://mirrors.ustc.edu.cn/crates.io-index"' >> $HOME/.cargo/config.toml
+
+RUN git clone --depth 1 https://gitcode.com/Ascend/text-embeddings-inference.git && cd text-embeddings-inference
+RUN cd /home/HwHiAiUser/text-embeddings-inference && \
+    bash -c "source $HOME/.cargo/env && cargo install --path router -F python -F http --no-default-features" && \
+    rm -rf /home/HwHiAiUser/text-embeddings-inference/target
+
+USER root
+RUN pip3 install torch-npu==2.9.0 --extra-index-url https://download.pytorch.org/whl/cpu && \
+    pip3 config set global.index-url ${PIP_INDEX_URL} && \
+    pip3 install decorator attrs psutil && \
+    cd /home/HwHiAiUser/text-embeddings-inference/backends/python/server && make -j$(nproc) && \
+    make install && pip3 cache purge
+RUN cp /home/HwHiAiUser/text-embeddings-inference/start.sh /home/HwHiAiUser/start.sh && chmod 751 /home/HwHiAiUser/start.sh && chown HwHiAiUser:HwHiAiUser /home/HwHiAiUser/start.sh
+
+# 设置容器默认启动用户为HwHiAiUser
+USER HwHiAiUser:HwHiAiUser
+WORKDIR /home/HwHiAiUser
+
+ENTRYPOINT ["bash", "/home/HwHiAiUser/start.sh"]
