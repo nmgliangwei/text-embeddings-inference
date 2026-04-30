@@ -147,7 +147,7 @@ def npu_attn_910b(
     if is_causal:
         sparse_mode = 3
     else:
-        sparse_mode = 0 
+        sparse_mode = 0
         
     attn_mask = attn_mask_builder.get_npu_attn_mask_910b(max_seqlen_q, q.dtype, q.device, causal=is_causal)
 
