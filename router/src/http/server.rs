@@ -184,7 +184,7 @@ async fn predict(
 
             let counter = metrics::counter!("te_request_count", "method" => "single");
             counter.increment(1);
-
+            
             (
                 PredictResponse::Single(predictions),
                 ResponseMetadata::new(
@@ -1829,6 +1829,9 @@ pub async fn run(
     api_key: Option<String>,
     cors_allow_origin: Option<Vec<String>>,
 ) -> Result<(), anyhow::Error> {
+    // Set the max_client_batch_size for use in deserializers
+    crate::http::types::set_max_client_batch_size(info.max_client_batch_size);
+    
     // OpenAPI documentation
     #[derive(OpenApi)]
     #[openapi(

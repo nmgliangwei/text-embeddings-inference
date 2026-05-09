@@ -47,7 +47,11 @@ if [[ -z "$MODEL_ID" ]]; then
     exit 1
 fi
 
-BASE_MODEL_DIR="/home/HwHiAiUser/model"
+if [[ -z "$MODEL_DIR" ]]; then
+    MODEL_DIR="/home/HwHiAiUser/model"
+    echo "use default model dir: $MODEL_DIR"
+fi
+
 
 function is_local_path() {
     if [[ -d "$1" ]]; then
@@ -122,7 +126,7 @@ function main() {
         echo "Using local model path: ${model_dir_actual}"
     else
         local model_id="${MODEL_ID}"
-        model_dir_actual="${BASE_MODEL_DIR}/$(basename "${model_id}")"
+        model_dir_actual="${MODEL_DIR}/$(basename "${model_id}")"
         use_local=false
         echo "Treating input as ModelScope ID. Model will be stored at: ${model_dir_actual}"
     fi
