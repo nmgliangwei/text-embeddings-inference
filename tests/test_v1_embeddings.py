@@ -18,6 +18,10 @@ MODEL_IDS = [
         "model_id": "Qwen3-Embedding-0.6B",
         "env": {},
     },
+    {
+        "model_id": "gte_Qwen2-1.5B-instruct",
+        "env": {},
+    },
 ]
 PORT = 3068
 

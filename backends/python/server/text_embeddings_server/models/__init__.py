@@ -13,6 +13,7 @@ from text_embeddings_server.models.default_model import DefaultModel
 from text_embeddings_server.models.classification_model import ClassificationModel
 from text_embeddings_server.models.jinaBert_model import FlashJinaBert
 from text_embeddings_server.models.flash_qwen3 import FlashQwen3
+from text_embeddings_server.models.flash_qwen2 import FlashQwen2
 from text_embeddings_server.models.unixcoder_model import UniXcoderModel
 
 from text_embeddings_server.utils.device import get_device, use_ipex
@@ -135,7 +136,12 @@ def get_model(model_path: Path, dtype: Optional[str], pool: str):
             return create_model(FlashQwen3, model_path, device, datatype, pool)
         except FileNotFoundError:
             return create_model(DefaultModel, model_path, device, datatype, pool)   
-     
+
+    if config.model_type == "qwen2" and device.type == "npu":
+        try:
+            return create_model(FlashQwen2, model_path, device, datatype, pool)
+        except FileNotFoundError:
+            return create_model(DefaultModel, model_path, device, datatype, pool)
     # Default case
     if config.architectures[0].endswith("Classification"):
         return create_model(ClassificationModel, model_path, device, datatype)

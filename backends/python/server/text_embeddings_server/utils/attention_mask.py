@@ -1,14 +1,15 @@
 import torch
 import torch_npu
 
+
 class AttentionMaskBuilder:
-    
+
     def __init__(
-        self
+            self
     ):
         self.max_seq_len = 0
         self.attn_mask_cache = None
-    
+
     def _round_up(self, x: int, align: int):
         # round up x to align, for example, if align is 16, x will be rounded up to 16, 32, 48, etc.
         # input: 15, 16 -> output: 16
@@ -29,7 +30,6 @@ class AttentionMaskBuilder:
         # input: (16, 32), target_shape: [1, 16, 2, 16]
         # output: (1, 16, 2, 16)
         return x.reshape(target_shape)
-
 
     def _custom_transpose(self, x, dim1, dim2):
         # transpose the input tensor
@@ -60,7 +60,7 @@ class AttentionMaskBuilder:
             self._custom_reshape(self._custom_pad(in_tensor, pad_dims), aux_dims), 1, 2).contiguous()
 
     def get_npu_attn_mask_no_causal(self, max_seq_len: int, dtype: torch.dtype, device: torch.device):
-        if self.max_seq_len >= max_seq_len:
+        if self.attn_mask_cache is not None and self.max_seq_len >= max_seq_len:
             return self.attn_mask_cache
 
         self.max_seq_len = max_seq_len
@@ -74,7 +74,7 @@ class AttentionMaskBuilder:
         return self.attn_mask_cache
 
     def get_npu_attn_mask_causal(self, max_seq_len: int, dtype: torch.dtype, device: torch.device):
-        if self.max_seq_len >= max_seq_len:
+        if self.attn_mask_cache is not None and self.max_seq_len >= max_seq_len:
             return self.attn_mask_cache
 
         tril = torch.ones((max_seq_len, max_seq_len), dtype=torch.bool, device=device).tril_()
@@ -95,7 +95,7 @@ class AttentionMaskBuilder:
             return self.get_npu_attn_mask_causal(max_seq_len, dtype, device)
         else:
             return self.get_npu_attn_mask_no_causal(max_seq_len, dtype, device)
-        
+
     def get_npu_attn_mask_910b(self, max_seq_len: int, dtype: torch.dtype, device: torch.device, causal: bool = False):
         if causal:
             if self.attn_mask_cache is not None:

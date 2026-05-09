@@ -60,7 +60,7 @@ class PaddedBatch(Batch):
             max_length = pb.max_length
         # Allocate padded tensors all at once
         all_tensors = torch.zeros([4, new_bs, max_length], dtype=torch.int32)
-
+        
         for i, start_index in enumerate(pb.cu_seq_lengths[:-1]):
             end_index = pb.cu_seq_lengths[i + 1]
             input_length = end_index - start_index
@@ -75,10 +75,10 @@ class PaddedBatch(Batch):
                 pb.position_ids[start_index:end_index], dtype=torch.int32
             )
             all_tensors[3, i, :input_length] = 1
+           
 
         # Move padded tensors all at once
         all_tensors = all_tensors.to(device)
-
         return PaddedBatch(
             input_ids=all_tensors[0],
             token_type_ids=all_tensors[1],

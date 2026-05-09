@@ -67,17 +67,17 @@ else:
 
 
 def hpu_attn(
-    q,
-    k,
-    v,
-    out,
-    attn_mask,
-    seqlen_q,
-    seqlen_k,
-    max_seqlen_q,
-    max_seqlen_k,
-    softmax_scale,
-    is_causal=False,
+        q,
+        k,
+        v,
+        out,
+        attn_mask,
+        seqlen_q,
+        seqlen_k,
+        max_seqlen_q,
+        max_seqlen_k,
+        softmax_scale,
+        is_causal=False,
 ):
     from habana_frameworks.torch.hpex.kernels import FusedSDPA
 
@@ -96,20 +96,20 @@ def hpu_attn(
 
 
 def npu_attn_310p(
-    q,
-    k,
-    v,
-    num_heads,
-    out,
-    attn_mask,
-    seqlen_q,
-    seqlen_k,
-    max_seqlen_q,
-    max_seqlen_k,
-    softmax_scale,
-    is_causal=False,
-    num_key_value_heads: Optional[int] = None,
-    ):
+        q,
+        k,
+        v,
+        num_heads,
+        out,
+        attn_mask,
+        seqlen_q,
+        seqlen_k,
+        max_seqlen_q,
+        max_seqlen_k,
+        softmax_scale,
+        is_causal=False,
+        num_key_value_heads: Optional[int] = None,
+):
     attn_mask = attn_mask_builder.get_npu_attn_mask_310p(max_seqlen_q, q.dtype, q.device, causal=is_causal)
     seq_lens = seqlen_q.cpu().tolist()
     num_tokens = seq_lens[-1]
@@ -118,70 +118,70 @@ def npu_attn_310p(
     output = torch.empty(num_tokens, num_heads, q.size(-1), dtype=q.dtype, device=q.device)
 
     torch_npu._npu_flash_attention(query=q,
-                                key=k,
-                                value=v,
-                                mask=attn_mask,
-                                seq_len=seq_len_tensor,
-                                scale_value=softmax_scale,
-                                num_heads=num_heads,
-                                num_kv_heads=num_key_value_heads,
-                                out=output)
+                                   key=k,
+                                   value=v,
+                                   mask=attn_mask,
+                                   seq_len=seq_len_tensor,
+                                   scale_value=softmax_scale,
+                                   num_heads=num_heads,
+                                   num_kv_heads=num_key_value_heads,
+                                   out=output)
     return output
 
-    
+
 def npu_attn_910b(
-    q,
-    k,
-    v,
-    num_heads,
-    out,
-    attn_mask,
-    seqlen_q,
-    seqlen_k,
-    max_seqlen_q,
-    max_seqlen_k,
-    softmax_scale,
-    is_causal=False,
-    num_key_value_heads: Optional[int] = None,
-    ):
+        q,
+        k,
+        v,
+        num_heads,
+        out,
+        attn_mask,
+        seqlen_q,
+        seqlen_k,
+        max_seqlen_q,
+        max_seqlen_k,
+        softmax_scale,
+        is_causal=False,
+        num_key_value_heads: Optional[int] = None,
+):
     if is_causal:
         sparse_mode = 3
     else:
-        sparse_mode = 0
-        
+        sparse_mode = 1
+
     attn_mask = attn_mask_builder.get_npu_attn_mask_910b(max_seqlen_q, q.dtype, q.device, causal=is_causal)
 
     out_ = torch_npu.npu_fused_infer_attention_score(
-            query=q,
-            key=k,
-            value=v,
-            num_heads=num_heads,
-            num_key_value_heads=num_key_value_heads,
-            input_layout="TND",
-            scale=softmax_scale,
-            actual_seq_lengths=seqlen_q[1:].tolist(),
-            actual_seq_lengths_kv=seqlen_k[1:].tolist(),
-            sparse_mode=sparse_mode,
-            atten_mask=attn_mask,
-        )[0]
+        query=q,
+        key=k,
+        value=v,
+        num_heads=num_heads,
+        num_key_value_heads=num_key_value_heads,
+        input_layout="TND",
+        scale=softmax_scale,
+        actual_seq_lengths=seqlen_q[1:].tolist(),
+        actual_seq_lengths_kv=seqlen_k[1:].tolist(),
+        sparse_mode=sparse_mode,
+        atten_mask=attn_mask,
+    )[0]
     return out_
 
 
 def npu_attn(
-    q,
-    k,
-    v,
-    num_heads,
-    out,
-    attn_mask,
-    seqlen_q,
-    seqlen_k,
-    max_seqlen_q,
-    max_seqlen_k,
-    softmax_scale,
-    is_causal=False,
-    num_key_value_heads: Optional[int] = None,
-    ):
+        q,
+        k,
+        v,
+        num_heads,
+        out,
+        attn_mask,
+        seqlen_q,
+        seqlen_k,
+        max_seqlen_q,
+        max_seqlen_k,
+        softmax_scale,
+        is_causal=False,
+        num_key_value_heads: Optional[int] = None,
+):
     device_name = torch.npu.get_device_name()
     if device_name.lower().find("310p") != -1:
         return npu_attn_310p(
@@ -215,9 +215,11 @@ def npu_attn(
             is_causal,
             num_key_value_heads,
         )
-    
+
+
 def attention(
-    q, k, v, num_heads, out, cu_seqlens, max_s, softmax_scale, is_causal=False, attn_mask=None, num_key_value_heads: Optional[int] = None,
+        q, k, v, num_heads, out, cu_seqlens, max_s, softmax_scale, is_causal=False, attn_mask=None,
+        num_key_value_heads: Optional[int] = None,
 ):
     if HAS_FLASH_ATTN_V2:
         if use_ipex:
@@ -292,9 +294,9 @@ def attention(
                 softmax_scale,
                 is_causal,
                 num_key_value_heads,
-                )
-            
-        else:   
+            )
+
+        else:
             return flash_attn_cuda.fwd(
                 q,
                 k,

@@ -7,10 +7,6 @@ from typing import Type, List
 from transformers import AutoModel, AutoConfig, AutoTokenizer
 from opentelemetry import trace
 
-from collections import defaultdict
-import numpy as np
-from loguru import logger
-
 from text_embeddings_server.models.pooling import DefaultPooling
 
 from text_embeddings_server.models import Model
