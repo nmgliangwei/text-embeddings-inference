@@ -1504,7 +1504,14 @@ async fn openai_embed(
             counter.increment(1);
     
             (
-                OpenAICompatRerankResponse{results},
+                OpenAICompatRerankResponse{
+                    results,
+                    model: info.served_model_name.clone(),
+                    usage: OpenAICompatUsage {
+                        prompt_tokens: total_compute_tokens,
+                        total_tokens: total_compute_tokens,
+                    },
+                },
                 ResponseMetadata::new(
                     compute_chars,
                     total_compute_tokens,
