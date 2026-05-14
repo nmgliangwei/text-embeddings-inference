@@ -286,7 +286,12 @@ pub(crate) struct OpenAIRank {
 }
 
 #[derive(Serialize, ToSchema)]
-pub(crate) struct OpenAICompatRerankResponse{pub results: Vec<OpenAIRank>}
+pub(crate) struct OpenAICompatRerankResponse{
+    pub results: Vec<OpenAIRank>,
+    #[schema(example = "thenlper/gte-base")]
+    pub model: String,
+    pub usage: OpenAICompatUsage,
+}
 
 #[derive(Deserialize, ToSchema, Debug)]
 #[serde(untagged)]
