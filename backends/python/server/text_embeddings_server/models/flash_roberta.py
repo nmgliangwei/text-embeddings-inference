@@ -14,7 +14,7 @@ from transformers import AutoTokenizer
 from opentelemetry import trace
 from text_embeddings_server.models import Model
 
-from text_embeddings_server.models.flash_bert import (BertEncoder, 
+from text_embeddings_server.models.flash_bert import (BertEncoder,
                                                       FastLayerNorm)
 
 from text_embeddings_server.models.types import FlashBatch, PaddedBatch, Embedding, Score, TokenEmbedding
@@ -61,7 +61,7 @@ class RobertaEmbeddings:
         )
 
         inputs_embeds += position_embeds
-        
+
         embeddings, _ = self.layer_norm.forward(inputs_embeds, token_type_embeds)
         return embeddings
 
@@ -69,7 +69,7 @@ def replace_roberta_positions(
     input_ids: torch.Tensor, position_ids: torch.Tensor, padding_idx: int
 ) -> None:
     position_ids += padding_idx + 1
-    
+
 
 class FlashRobertaModel(nn.Module):
     def __init__(self, handle, device, dtype, config: RobertaConfig, prefix: str = ""):
@@ -87,29 +87,29 @@ class FlashRobertaModel(nn.Module):
         max_s,
         mask=None,
         attn_mask=None,
-    ):        
+    ):
         embeddings = self.embeddings.forward(input_ids, token_type_ids, position_ids)
         encoder_outputs = self.encoder.forward(embeddings, cu_seqlens, max_s, attn_mask)
         if mask is not None:
             outputs = encoder_outputs[mask]
             return outputs
         return encoder_outputs
-    
-    
+
+
 class RobertaClassificationHead(nn.Module):
     """Head for sentence-level classification tasks."""
 
     def __init__(self, handle, device, dtype, model_config):
         super().__init__()
         config = model_config
-        
+
         self.classifier_dense_weight = (
             handle.get_tensor(f"classifier.dense.weight").to(dtype).to(device)
         )
         self.classifier_dense_bias = (
             handle.get_tensor(f"classifier.dense.bias").to(dtype).to(device)
         )
-           
+
         self.classifier_out_proj_weight = (
             handle.get_tensor(f"classifier.out_proj.weight").to(dtype).to(device)
         )
@@ -127,16 +127,16 @@ class RobertaClassificationHead(nn.Module):
             x, self.classifier_out_proj_weight, self.classifier_out_proj_bias
         )
         return x
- 
-    
+
+
 class RobertaForSequenceClassification(nn.Module):
     def __init__(self, handle, device, dtype, config: RobertaConfig, prefix: str = ""):
         super().__init__()
         self.config = config
-        
+
         self.roberta = FlashRobertaModel(handle, device, dtype, config, prefix)
         self.classifier = RobertaClassificationHead(handle, device, dtype, config)
-    
+
     def forward(
             self,
             input_ids,
@@ -175,7 +175,7 @@ class FlashRoberta(Model):
             self.max_input_length = config.max_seq_length
         else:
             self.max_input_length = config.max_position_embeddings
-            
+
         safe_weight_path = model_path / "model.safetensors"
         bin_weight_path = model_path / "pytorch_model.bin"
         if not safe_weight_path.exists() and not bin_weight_path.exists():
@@ -184,14 +184,14 @@ class FlashRoberta(Model):
         if not safe_weight_path.exists():
             logger.info(f"model.safetensors does not exist, translate pytorch_model.bin to model.safetensors")
             stat_dict = torch.load(bin_weight_path.as_posix(), map_location=torch.device('cpu'))
-            save_file(stat_dict, safe_weight_path.as_posix())
-            
+            save_file(stat_dict, safe_weight_path.as_posix(), metadata={"format": "pt"})
+
         with safe_open(model_path / "model.safetensors", framework="pt") as f:
             if config.architectures[0].endswith("Classification"):
                 model = RobertaForSequenceClassification(f, device, dtype, config, "roberta.")
-            else:    
+            else:
                 model = FlashRobertaModel(f, device, dtype, config)
-                
+
         self.device = device
         self.dtype = dtype
         self.hidden_size = config.hidden_size
@@ -202,7 +202,7 @@ class FlashRoberta(Model):
     def batch_type(self) -> Union[FlashBatch, PaddedBatch]:
         # for hpu devices, we use PaddedBatch as we do not have real varlen fwd yet
         return FlashBatch if self.device.type != "hpu" else PaddedBatch
-    
+
     @tracer.start_as_current_span("embed")
     def embed(self, batch: PaddedBatch) -> List[Embedding]:
         if not isinstance(batch, FlashBatch):
@@ -212,7 +212,7 @@ class FlashRoberta(Model):
         mask = None
         attn_mask = None
         max_input_lens = batch.max_s
-        
+
         all_embedding = self.model.forward(
             input_ids=batch.input_ids,
             token_type_ids=batch.token_type_ids,
@@ -222,7 +222,7 @@ class FlashRoberta(Model):
             mask=mask,
             attn_mask=attn_mask,
         )
- 
+
         embedding = all_embedding[cu_seqlens[:-1]]
         cpu_results = embedding.cpu().numpy()
 
@@ -232,7 +232,7 @@ class FlashRoberta(Model):
             )
             for i in range(len(batch))
         ]
-        
+
     @tracer.start_as_current_span("embed_all")
     def embed_all(self, batch: Union[FlashBatch, PaddedBatch]):
         if not isinstance(batch, FlashBatch):
@@ -243,7 +243,7 @@ class FlashRoberta(Model):
         attn_mask = None
         max_input_lens = batch.max_s
         batch_size = batch.size
-        
+
         all_embedding = self.model.forward(
             input_ids=batch.input_ids,
             token_type_ids=batch.token_type_ids,
@@ -253,7 +253,7 @@ class FlashRoberta(Model):
             mask=mask,
             attn_mask=attn_mask,
         )
-        
+
         seqlens = cu_seqlens[1:] - cu_seqlens[:-1]
         seqlens_list = seqlens.tolist()
         cpu_results = all_embedding.tolist()
@@ -268,7 +268,7 @@ class FlashRoberta(Model):
             embedding_result.append(token_embeddings)
 
         return embedding_result
-    
+
     @tracer.start_as_current_span("predict")
     def predict(self, batch: Union[FlashBatch, PaddedBatch]) -> List[Score]:
         if not isinstance(batch, FlashBatch):
@@ -288,6 +288,6 @@ class FlashRoberta(Model):
             mask=mask,
             attn_mask=attn_mask,
         )
-    
+
         all_scores = logits.tolist()
         return [Score(values=scores) for scores in all_scores]
