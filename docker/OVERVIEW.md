@@ -12,7 +12,10 @@
   - [Image Repository](https://www.hiascend.com/developer/ascendhub/detail/07a016975cc341f3a5ae131f2b52399d)
   - [Community](https://www.hiascend.com/)
 
-## Supported Tags and Dockerfile Links
+## Overview
+This image is based on text embedding inference and is adapted for Huawei NPU cards to provide service interfaces such as embedding and reranker. The interfaces are compatible with the open-source text embedding inference and support models such as embedding, reranker, and Sequence Classification. By default, this image runs as the regular user HwHiAiUser.
+
+## Dockerfile link corresponding to mirror tags
 
 ### Tag Naming Convention
 
@@ -54,10 +57,13 @@ An Atlas NPU driver compatible with the container's CANN version must be install
 
 ### Running a TEI Container
 
+Startup command for version 26.0.0 and later:
+
 ```bash
-export MODEL_DIR="/home/HwHiAiUser/model"
+export MODEL_DIR=/home/HwHiAiUser/model
 docker run \
     -u <user> \
+    --net host \
     --name tei_container \
     --device /dev/davinci0 \
     --device /dev/davinci_manager \
@@ -70,14 +76,37 @@ docker run \
     -v /etc/ascend_install.info:/etc/ascend_install.info \
     -e MODEL_DIR=$MODEL_DIR \
     -v $MODEL_DIR:$MODEL_DIR \
-    -p <host_port>:8000 \
-    -it swr.cn-south-1.myhuaweicloud.com/ascendhub/mis-tei:<tag> --model-id $MODEL_DIR/<model name> --port 8000
+    -itd swr.cn-south-1.myhuaweicloud.com/ascendhub/mis-tei:<tag> --model-id $MODEL_DIR/<model_name> --hostname <listen_ip> --port <listen_port>
 ```
+
+<details> <summary>Startup command for versions before 26.0.0:</summary>
+
+```bash
+export MODEL_DIR=/home/HwHiAiUser/model
+docker run \
+    -u <user> \
+    --net host \
+    --name tei_container \
+    -e ENABLE_BOOST=True \
+    --device /dev/davinci0 \
+    --device /dev/davinci_manager \
+    --device /dev/devmm_svm \
+    --device /dev/hisi_hdc \
+    -v /usr/local/dcmi:/usr/local/dcmi \
+    -v /usr/local/bin/npu-smi:/usr/local/bin/npu-smi \
+    -v /usr/local/Ascend/driver/lib64/:/usr/local/Ascend/driver/lib64/ \
+    -v /usr/local/Ascend/driver/version.info:/usr/local/Ascend/driver/version.info \
+    -v /etc/ascend_install.info:/etc/ascend_install.info \
+    -v $MODEL_DIR:/home/HwHiAiUser/model \
+    -itd swr.cn-south-1.myhuaweicloud.com/ascendhub/mis-tei:<tag>  /home/HwHiAiUser/model/<model_name> <listen_ip> <listen_port>
+```
+
+</details>
 
 #### **Parameter Description**
 
 - The `MODEL_DIR` environment variable specifies the directory on the host machine where the model is stored. TEI inside the container will load the model from this directory.
-- Please replace `<user>`, `<host_port>`, `<tag>`, `<model name>` with actual values according to your situation.
+- Please replace `<user>`、`<tag>`、`<model_name>`、`<listen_ip>`、`<listen_port>` with actual values according to your situation.
 - Please ensure that the model files on the host machine match `<model name>`.
 - The container runs by default as the regular user `HwHiAiUser`. Please make sure the HwHiAiUser has read and write permissions for the models on the host. If you need to specify a different user, add the `-u <user>` parameter when running the container.
 - Please refer to the [CLI arguments](https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docs/source/en/cli_arguments.md) to learn other configuration parameters.

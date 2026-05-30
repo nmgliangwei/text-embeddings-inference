@@ -34,6 +34,7 @@ RUN mkdir -p $HOME/.cargo && \
 
 RUN git clone --depth 1 https://gitcode.com/Ascend/text-embeddings-inference.git && cd text-embeddings-inference
 RUN cd /home/HwHiAiUser/text-embeddings-inference && \
+    CARGO_BUILD_RUSTFLAGS="-C target-cpu=generic" \
     bash -c "source $HOME/.cargo/env && cargo install --path router -F python -F http --no-default-features" && \
     rm -rf /home/HwHiAiUser/text-embeddings-inference/target
 
@@ -50,4 +51,3 @@ USER HwHiAiUser:HwHiAiUser
 WORKDIR /home/HwHiAiUser
 
 ENTRYPOINT ["bash", "/home/HwHiAiUser/start.sh"]
-

@@ -11,7 +11,12 @@
   - [镜像仓库](https://www.hiascend.com/developer/ascendhub/detail/07a016975cc341f3a5ae131f2b52399d)
   - [社区](https://www.hiascend.com/)
 
-## 支持的 Tags 及 Dockerfile 链接
+## 概述
+
+该镜像基于text embedding inference 适配华为NPU卡提供embedding、reranker等服务化接口，接口兼容开源text embedding inference, 支持embedding和reranker、Sequence Classification等模型，该镜像默认以普通用户HwHiAiUser用户运行
+
+
+## 镜像Tags对应的Dockerfile 链接
 
 ### Tag 规范
 
@@ -47,16 +52,19 @@ Tag 遵循以下格式：
 
 #### 安装驱动
 
-主机上必须安装与容器内 CANN 版本兼容的NPU 驱动。请参阅 [CANN 兼容性矩阵](https://www.hiascend.com/document) 了解驱动与 CANN 版本的对应关系。
+主机上必须安装与容器内 CANN 版本兼容的NPU 驱动, 请参阅 [CANN 兼容性矩阵](https://www.hiascend.com/document) 了解驱动与 CANN 版本的对应关系。
 
 ---
 
 ### 运行 TEI 容器
 
+26.0.0及以后的版本启动命令:
+
 ```bash
-export MODEL_DIR="/home/HwHiAiUser/model"
+export MODEL_DIR=/home/HwHiAiUser/model
 docker run \
     -u <user> \
+    --net host \
     --name tei_container \
     --device /dev/davinci0 \
     --device /dev/davinci_manager \
@@ -69,15 +77,38 @@ docker run \
     -v /etc/ascend_install.info:/etc/ascend_install.info \
     -e MODEL_DIR=$MODEL_DIR \
     -v $MODEL_DIR:$MODEL_DIR \
-    -p <host_port>:8000 \
-    -it swr.cn-south-1.myhuaweicloud.com/ascendhub/mis-tei:<tag> --model-id $MODEL_DIR/<model name> --port 8000
+    -itd swr.cn-south-1.myhuaweicloud.com/ascendhub/mis-tei:<tag> --model-id $MODEL_DIR/<model_name> --hostname <listen_ip> --port <listen_port>
 ```
+
+<details> <summary>26.0.0之前的版本启动命令:</summary>
+
+```bash
+export MODEL_DIR=/home/HwHiAiUser/model
+docker run \
+    -u <user> \
+    --net host \
+    --name tei_container \
+    -e ENABLE_BOOST=True \
+    --device /dev/davinci0 \
+    --device /dev/davinci_manager \
+    --device /dev/devmm_svm \
+    --device /dev/hisi_hdc \
+    -v /usr/local/dcmi:/usr/local/dcmi \
+    -v /usr/local/bin/npu-smi:/usr/local/bin/npu-smi \
+    -v /usr/local/Ascend/driver/lib64/:/usr/local/Ascend/driver/lib64/ \
+    -v /usr/local/Ascend/driver/version.info:/usr/local/Ascend/driver/version.info \
+    -v /etc/ascend_install.info:/etc/ascend_install.info \
+    -v $MODEL_DIR:/home/HwHiAiUser/model \
+    -itd swr.cn-south-1.myhuaweicloud.com/ascendhub/mis-tei:<tag>  /home/HwHiAiUser/model/<model_name> <listen_ip> <listen_port>
+```
+
+</details>
 
 #### **参数说明**
 
 - `MODEL_DIR` 环境变量指定了宿主机上的模型存放目录，容器内 TEI 会从该目录加载模型。
-- 请根据实际情况替换 `<user>`、`<host_port>`、`<tag>`、`<model name>` 为实际值。
-- 请确保宿主机上的模型文件与 `<model name>` 匹配。
+- 请根据实际情况替换 `<user>`、`<tag>`、`<model_name>`、`<listen_ip>`、`<listen_port>`为实际值。
+- 请确保宿主机上的模型文件与 `<model_name>` 匹配。
 - 容器默认以普通用户`HwHiAiUser`运行, 请确保HwHiAiUser用户有读写宿主机上模型权限，如需指定其他用户，请在运行容器时添加 `-u <user>` 参数。
 - 请参考 [CLI arguments](https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docs/source/en/cli_arguments.md) 了解其他配置参数。
 
