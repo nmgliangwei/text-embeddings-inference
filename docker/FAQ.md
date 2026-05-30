@@ -41,7 +41,7 @@ npu-smi info
 
 ## 2 Container startup failed with error: "Error: Could not create backend"
 
-Run and enter the container by referring to [FAQ 1](https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docker/FAQ.md#L13-L33).
+Run and enter the container by referring to [FAQ 1](#1-container-startup-failed-with-error-available-device-not-found).
 Inside the container, run:
 
 ```bash
@@ -74,7 +74,7 @@ Solution approach:
 `-u root --privileged=true -e ASCEND_RT_VISIBLE_DEVICES=<target_card_id>`
 Note: Privileged mode grants access to all NPUs by default.
 
-**Solution 2** : Run and enter the container by referring to [FAQ 1](<https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docker/FAQ.md#L13-L33>).
+**Solution 2** : Run and enter the container by referring to [FAQ 1](#1-container-startup-failed-with-error-available-device-not-found).
 
 Inside the container, start multiple services:
 

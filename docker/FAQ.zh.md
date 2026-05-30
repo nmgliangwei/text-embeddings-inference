@@ -43,7 +43,7 @@ npu-smi info
 
 ## 2 启动容器失败，报错："Error: Could not create backend"
 
-参考[FAQ 1](https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docker/FAQ.zh.md#L16-L36) 运行并进入容器
+参考 [FAQ 1](#1-启动容器失败报错available-device-not-found) 运行并进入容器
 
 在容器内执行如下命令：
 
@@ -87,7 +87,7 @@ python3 text_embeddings_server/cli.py $MODEL_DIR/bge-large-zh-v1.5(根据具体�
 
 - **方案2**
 
-参考[FAQ 1](https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docker/FAQ.zh.md#L16-L36) 运行并进入容器
+参考 [FAQ 1](#1-启动容器失败报错available-device-not-found) 运行并进入容器
 
 在容器内执行如下命令：
 
