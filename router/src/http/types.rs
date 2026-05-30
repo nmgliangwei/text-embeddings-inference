@@ -351,6 +351,9 @@ pub(crate) struct OpenAICompatRequest {
 
 #[derive(Deserialize, ToSchema)]
 pub(crate) struct OpenAICompatRerankRequest {
+    #[allow(dead_code)]
+    #[schema(nullable = true, example = "null")]
+    pub model: Option<String>,
     #[schema(example = "What is Deep Learning?")]
     pub query: String,
     #[schema(example = json!(["Deep Learning is ..."]))]

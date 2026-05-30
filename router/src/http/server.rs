@@ -184,7 +184,7 @@ async fn predict(
 
             let counter = metrics::counter!("te_request_count", "method" => "single");
             counter.increment(1);
-            
+
             (
                 PredictResponse::Single(predictions),
                 ResponseMetadata::new(
@@ -1363,9 +1363,21 @@ async fn openai_embed(
         if let Some(context) = context {
             span.set_parent(context);
         }
-    
+
+        // NOTE: Validation of `model` won't fail for the time being given that Text Embeddings
+        // Inference can only serve a single model at a time so no need for the `model` parameter to
+        // differentiate one model from the other, but we at least raise a warning.
+        if let Some(requested_model) = &req.model {
+            if requested_model != &info.served_model_name {
+                tracing::warn!(
+                    "The provided `model={}` has not been found, the `model` parameter should be provided either empty or with `model={}` instead.",
+                    requested_model, info.served_model_name
+                );
+            }
+        }
+
         let start_time = Instant::now();
-    
+
         if req.documents.is_empty() {
             let message = "`documents` cannot be empty".to_string();
             tracing::error!("{message}");
@@ -1377,7 +1389,7 @@ async fn openai_embed(
             counter.increment(1);
             Err(err)?;
         }
-    
+
         match &info.model_type {
             ModelType::Reranker(_) => Ok(()),
             ModelType::Classifier(_) | ModelType::Embedding(_) => {
@@ -1393,11 +1405,11 @@ async fn openai_embed(
             tracing::error!("{err}");
             ErrorResponse::from(err)
         })?;
-    
+
         // Closure for rerank
         let rerank_inner = move |query: String, document: String, truncate: bool, infer: Infer| async move {
             let permit = infer.acquire_permit().await;
-    
+
             let response = infer
                 .predict(
                     (query, document),
@@ -1408,9 +1420,9 @@ async fn openai_embed(
                 )
                 .await
                 .map_err(ErrorResponse::from)?;
-    
+
             let score = response.results[0];
-    
+
             Ok::<(usize, Duration, Duration, Duration, f32), ErrorResponse>((
                 response.metadata.prompt_tokens,
                 response.metadata.tokenization,
@@ -1419,13 +1431,13 @@ async fn openai_embed(
                 score,
             ))
         };
-    
+
         let truncate = req.truncate.unwrap_or(info.auto_truncate);
-    
+
         let (response, metadata) = {
             let counter = metrics::counter!("te_request_count", "method" => "batch");
             counter.increment(1);
-    
+
             let batch_size = req.documents.len();
             if batch_size > info.max_client_batch_size {
                 let message = format!(
@@ -1441,11 +1453,11 @@ async fn openai_embed(
                 counter.increment(1);
                 Err(err)?;
             }
-    
+
             let mut futures = Vec::with_capacity(batch_size);
             let query_chars = req.query.chars().count();
             let mut compute_chars = query_chars * batch_size;
-    
+
             for document in &req.documents {
                 compute_chars += document.chars().count();
                 let local_infer = infer.clone();
@@ -1460,13 +1472,13 @@ async fn openai_embed(
                 .await
                 .into_iter()
                 .collect::<Result<Vec<(usize, Duration, Duration, Duration, f32)>, ErrorResponse>>()?;
-    
+
             let mut results = Vec::with_capacity(batch_size);
             let mut total_tokenization_time = 0;
             let mut total_queue_time = 0;
             let mut total_inference_time = 0;
             let mut total_compute_tokens = 0;
-    
+
             for (index, r) in res.into_iter().enumerate() {
                 total_compute_tokens += r.0;
                 total_tokenization_time += r.1.as_nanos() as u64;
@@ -1487,22 +1499,22 @@ async fn openai_embed(
                         error_type: ErrorType::Backend,
                     })?;
                 }
-    
+
                 results.push(OpenAIRank { index, document, relevance_score })
             }
-    
+
             // Reverse sort
             results.sort_by(|x, y| x.relevance_score.partial_cmp(&y.relevance_score).unwrap());
             results.reverse();
             if let Some(top_n) = req.top_n {
                 results.truncate(top_n);
             }
-    
+
             let batch_size = batch_size as u64;
-    
+
             let counter = metrics::counter!("te_request_success", "method" => "batch");
             counter.increment(1);
-    
+
             (
                 OpenAICompatRerankResponse{
                     results,
@@ -1522,14 +1534,14 @@ async fn openai_embed(
                 ),
             )
         };
-    
+
         metadata.record_span(&span);
         metadata.record_metrics();
-    
+
         let headers = HeaderMap::from(metadata);
-    
+
         tracing::info!("Success");
-    
+
         Ok((headers, Json(response)))
     }
 /// Tokenize inputs
@@ -1838,7 +1850,7 @@ pub async fn run(
 ) -> Result<(), anyhow::Error> {
     // Set the max_client_batch_size for use in deserializers
     crate::http::types::set_max_client_batch_size(info.max_client_batch_size);
-    
+
     // OpenAPI documentation
     #[derive(OpenApi)]
     #[openapi(
