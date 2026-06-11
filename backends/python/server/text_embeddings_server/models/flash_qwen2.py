@@ -7,7 +7,12 @@ from typing import List, Union, Optional
 from transformers.models.qwen2.configuration_qwen2 import Qwen2Config
 from opentelemetry import trace
 from text_embeddings_server.models import Model
-from text_embeddings_server.models.types import FlashBatch, PaddedBatch, Embedding, Score
+from text_embeddings_server.models.types import (
+    FlashBatch,
+    PaddedBatch,
+    Embedding,
+    Score,
+)
 from text_embeddings_server.models.flash_qwen_base import (
     load_weight,
     apply_rotary_pos_emb_npu,
@@ -17,6 +22,7 @@ from text_embeddings_server.utils.flash_attn import attention
 
 
 tracer = trace.get_tracer(__name__)
+
 
 class Qwen2Attention:
     def __init__(
@@ -99,7 +105,7 @@ class Qwen2Attention:
             self.q_proj_bias,
             self.k_proj_bias,
             self.v_proj_bias,
-        ]      
+        ]
         self.is_310p = torch.npu.get_device_name().lower().find("310p") != -1
 
     def _project_qkv(self, hidden_states):
@@ -118,15 +124,21 @@ class Qwen2Attention:
     ):
         input_shape = hidden_states.shape[:-1]
         if self.is_310p:
-            q = torch_npu.npu_linear(hidden_states, self.q_proj_weight, self.q_proj_bias).view(*input_shape, self.num_heads, self.head_dim)
-            k = torch_npu.npu_linear(hidden_states, self.k_proj_weight, self.k_proj_bias).view(*input_shape, self.num_key_value_heads, self.head_dim)
-            v = torch_npu.npu_linear(hidden_states, self.v_proj_weight, self.v_proj_bias).view(*input_shape, self.num_key_value_heads, self.head_dim)
+            q = torch_npu.npu_linear(
+                hidden_states, self.q_proj_weight, self.q_proj_bias
+            ).view(*input_shape, self.num_heads, self.head_dim)
+            k = torch_npu.npu_linear(
+                hidden_states, self.k_proj_weight, self.k_proj_bias
+            ).view(*input_shape, self.num_key_value_heads, self.head_dim)
+            v = torch_npu.npu_linear(
+                hidden_states, self.v_proj_weight, self.v_proj_bias
+            ).view(*input_shape, self.num_key_value_heads, self.head_dim)
         else:
             q_proj, k_proj, v_proj = self._project_qkv(hidden_states)
             q = q_proj.reshape(*input_shape, self.num_heads, self.head_dim)
             k = k_proj.reshape(*input_shape, self.num_key_value_heads, self.head_dim)
             v = v_proj.reshape(*input_shape, self.num_key_value_heads, self.head_dim)
-        
+
         cos, sin = position_embeddings
         q, k = apply_rotary_pos_emb_npu(q, k, cos, sin)
 
@@ -167,38 +179,51 @@ class ClassificationHead(nn.Module):
         # CLSPool has already been applied in `pooling`
         x = torch_npu.npu_linear(x, self.score_weight)
         return x
-    
+
+
 class ForSequenceClassification(nn.Module):
-    def __init__(self, model_path, weight_map, prefix, device, dtype, config: Qwen2Config):
+    def __init__(
+        self, model_path, weight_map, prefix, device, dtype, config: Qwen2Config
+    ):
         super().__init__()
         self.config = config
-        
-        self.model = FlashQwenModel(model_path, weight_map, prefix, device, dtype, config, attention_cls=Qwen2Attention)
-        self.classifier = ClassificationHead(model_path, weight_map, prefix, device, dtype)
-    
+
+        self.model = FlashQwenModel(
+            model_path,
+            weight_map,
+            prefix,
+            device,
+            dtype,
+            config,
+            attention_cls=Qwen2Attention,
+        )
+        self.classifier = ClassificationHead(
+            model_path, weight_map, prefix, device, dtype
+        )
+
     def forward(
-            self,
-            input_ids,
-            position_ids,
-            cu_seqlens,
-            max_s,
-            mask=None,
-            attn_mask=None,
-            ):
+        self,
+        input_ids,
+        position_ids,
+        cu_seqlens,
+        max_s,
+        mask=None,
+        attn_mask=None,
+    ):
 
         sequence_output = self.model.forward(
-            input_ids,
-            position_ids,
-            cu_seqlens,
-            max_s,
-            mask,
-            attn_mask)
+            input_ids, position_ids, cu_seqlens, max_s, mask, attn_mask
+        )
         last_token_indices = cu_seqlens[1:] - 1
-        hidden_states = torch.index_select(sequence_output.last_hidden_state, 0, last_token_indices.to(sequence_output.last_hidden_state.device))
-        logits =  self.classifier(hidden_states)
+        hidden_states = torch.index_select(
+            sequence_output.last_hidden_state,
+            0,
+            last_token_indices.to(sequence_output.last_hidden_state.device),
+        )
+        logits = self.classifier(hidden_states)
         return logits
-    
-        
+
+
 class FlashQwen2(Model):
     def __init__(
         self,
@@ -221,12 +246,22 @@ class FlashQwen2(Model):
             weight_map = index_data["weight_map"]
         else:
             weight_map = None
-            
+
         if config.architectures[0].endswith("Classification"):
-            model = ForSequenceClassification(model_path, weight_map, "model", device, dtype, config)
-        else:    
-            model = FlashQwenModel(model_path, weight_map, "model", device, dtype, config, attention_cls=Qwen2Attention)
-                    
+            model = ForSequenceClassification(
+                model_path, weight_map, "model", device, dtype, config
+            )
+        else:
+            model = FlashQwenModel(
+                model_path,
+                weight_map,
+                "model",
+                device,
+                dtype,
+                config,
+                attention_cls=Qwen2Attention,
+            )
+
         self.hidden_size = config.hidden_size
         self.device = device
         self.dtype = dtype
@@ -256,9 +291,13 @@ class FlashQwen2(Model):
             mask=mask,
             attn_mask=attn_mask,
         )
-        
+
         last_token_indices = cu_seqlens[1:] - 1
-        hidden_states = torch.index_select(output.last_hidden_state, 0, last_token_indices.to(output.last_hidden_state.device))
+        hidden_states = torch.index_select(
+            output.last_hidden_state,
+            0,
+            last_token_indices.to(output.last_hidden_state.device),
+        )
         cpu_results = hidden_states.view(-1).tolist()
 
         return [
@@ -267,11 +306,11 @@ class FlashQwen2(Model):
             )
             for i in range(len(batch))
         ]
-        
+
     @tracer.start_as_current_span("predict")
     def predict(self, batch: Union[FlashBatch, PaddedBatch]) -> List[Score]:
         if not isinstance(batch, FlashBatch):
-                raise ValueError("only FlashBatch is supported")
+            raise ValueError("only FlashBatch is supported")
 
         cu_seqlens = batch.cu_seqlens
         mask = None
@@ -286,6 +325,6 @@ class FlashQwen2(Model):
             mask=mask,
             attn_mask=attn_mask,
         )
-    
+
         all_scores = logits.tolist()
         return [Score(values=scores) for scores in all_scores]

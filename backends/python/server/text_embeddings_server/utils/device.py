@@ -67,7 +67,7 @@ def get_device():
     device = torch.device("cpu")
     if torch.cuda.is_available():
         device = torch.device("cuda")
-        
+
     elif is_npu():
         device = torch.device("npu")
         torch.npu.set_compile_mode(jit_compile=False)
@@ -75,16 +75,12 @@ def get_device():
         torch.npu.set_option(option)
         torch.npu.set_device(torch.device("npu:0"))
     elif is_hpu():
-        import habana_frameworks.torch.core as htcore
-
         # WA for perf degradation from pytorch 2.5
         if ALLOW_REDUCED_PRECISION:
             torch._C._set_math_sdp_allow_fp16_bf16_reduction(True)
         if hasattr(torch, "hpu") and torch.hpu.is_available():  # type: ignore
             device = torch.device("hpu")
     elif use_ipex():
-        import intel_extension_for_pytorch as ipex
-
         if hasattr(torch, "xpu") and torch.xpu.is_available():
             device = torch.device("xpu")
 

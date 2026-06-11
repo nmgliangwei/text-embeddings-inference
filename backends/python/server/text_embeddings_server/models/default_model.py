@@ -10,11 +10,17 @@ from opentelemetry import trace
 from text_embeddings_server.models.pooling import DefaultPooling
 
 from text_embeddings_server.models import Model
-from text_embeddings_server.models.types import PaddedBatch, Embedding, Score, TokenEmbedding
+from text_embeddings_server.models.types import (
+    PaddedBatch,
+    Embedding,
+    Score,
+    TokenEmbedding,
+)
 
 tracer = trace.get_tracer(__name__)
 
 IS_CAUSAL = os.getenv("IS_CAUSAL", "").lower()
+
 
 class DefaultModel(Model):
     def __init__(
@@ -32,7 +38,7 @@ class DefaultModel(Model):
             .eval()
         )
         self.hidden_size = model.config.hidden_size
-        
+
         self.pool = pool
 
         position_offset = 0
@@ -56,26 +62,34 @@ class DefaultModel(Model):
         )
 
         if self.pool == "splade":
-            self.tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                model_path, local_files_only=True
+            )
             self.config = AutoConfig.from_pretrained(model_path)
             self.vocab_size = self.config.vocab_size
-        
-            self.sparse_linear = torch.nn.Linear(self.hidden_size, 1).to(device).to(dtype)
+
+            self.sparse_linear = (
+                torch.nn.Linear(self.hidden_size, 1).to(device).to(dtype)
+            )
             sparse_model_path = os.path.join(model_path, "sparse_linear.pt")
-            sparse_state_dict = torch.load(sparse_model_path, map_location="cpu", weights_only=True)
+            sparse_state_dict = torch.load(
+                sparse_model_path, map_location="cpu", weights_only=True
+            )
             self.sparse_linear.load_state_dict(sparse_state_dict)
-            
+
             unused_token_ids = [
                 self.tokenizer.cls_token_id,
                 self.tokenizer.eos_token_id,
                 self.tokenizer.pad_token_id,
-                self.tokenizer.unk_token_id
+                self.tokenizer.unk_token_id,
             ]
             self.unused_token_ids = [tid for tid in unused_token_ids if tid is not None]
-            self.unused_token_ids_tensor = torch.tensor(self.unused_token_ids, dtype=torch.long)
+            self.unused_token_ids_tensor = torch.tensor(
+                self.unused_token_ids, dtype=torch.long
+            )
         else:
             self.pooling = DefaultPooling(self.hidden_size, pooling_mode=pool)
-                
+
         super(DefaultModel, self).__init__(model=model, dtype=dtype, device=device)
 
     @property
@@ -101,24 +115,19 @@ class DefaultModel(Model):
             last_hidden_state = self.model(**kwargs, return_dict=True).last_hidden_state
         sparse_vecs = torch.relu(self.sparse_linear(last_hidden_state))
         token_weights = sparse_vecs.squeeze(-1).cpu()
-        
+
         all_token_weights = torch.zeros(
-            (batch_size, self.vocab_size),
-            dtype=token_weights.dtype
+            (batch_size, self.vocab_size), dtype=token_weights.dtype
         )
-        all_token_weights.scatter_(
-            1,
-            batch.input_ids.cpu(),
-            token_weights
-        )
-        
+        all_token_weights.scatter_(1, batch.input_ids.cpu(), token_weights)
+
         if self.unused_token_ids_tensor.numel() > 0:
             all_token_weights[:, self.unused_token_ids_tensor] = 0
-        
+
         cpu_weights = all_token_weights.detach().cpu().numpy()
-        
+
         return [Embedding(values=cpu_weights[i].tolist()) for i in range(batch_size)]
-    
+
     def _process_default(self, batch: PaddedBatch, kwargs: dict):
         if IS_CAUSAL in ["false", "0"]:
             with torch.no_grad():
@@ -126,17 +135,17 @@ class DefaultModel(Model):
         else:
             with torch.no_grad():
                 output = self.model(**kwargs)
-            
+
         embedding = self.pooling.forward(output, batch.attention_mask)
         cpu_results = embedding.view(-1).tolist()
-        
+
         return [
             Embedding(
                 values=cpu_results[i * self.hidden_size : (i + 1) * self.hidden_size]
             )
             for i in range(len(batch))
         ]
-    
+
     @tracer.start_as_current_span("embed_all")
     def embed_all(self, batch: PaddedBatch):
         kwargs = {"input_ids": batch.input_ids, "attention_mask": batch.attention_mask}
@@ -147,15 +156,20 @@ class DefaultModel(Model):
         output = self.model(**kwargs)
         embedding = output[0].contiguous()
         cpu_results = embedding.tolist()
-        seq_lengths = [batch.cu_seq_lengths[i+1] - batch.cu_seq_lengths[i] for i in range(len(batch.cu_seq_lengths)-1)]
-        embedding_result=[]
+        seq_lengths = [
+            batch.cu_seq_lengths[i + 1] - batch.cu_seq_lengths[i]
+            for i in range(len(batch.cu_seq_lengths) - 1)
+        ]
+        embedding_result = []
         for i in range(len(batch)):
-            embedding_tmp=[Embedding(values=cpu_results[i][j]) for j in range(seq_lengths[i])]
-            token_embeddings=TokenEmbedding(embeddings=embedding_tmp)
+            embedding_tmp = [
+                Embedding(values=cpu_results[i][j]) for j in range(seq_lengths[i])
+            ]
+            token_embeddings = TokenEmbedding(embeddings=embedding_tmp)
             embedding_result.append(token_embeddings)
 
         return embedding_result
-    
+
     @tracer.start_as_current_span("predict")
     def predict(self, batch: PaddedBatch) -> List[Score]:
         pass

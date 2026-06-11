@@ -44,15 +44,17 @@ class EmbeddingService(embed_pb2_grpc.EmbeddingServiceServicer):
 
     async def EmbedAll(self, request, context):
         max_input_length = self.model.max_input_length
-        batch = self.model.batch_type.from_pb(request, self.model.device, max_input_length)
+        batch = self.model.batch_type.from_pb(
+            request, self.model.device, max_input_length
+        )
 
         embeddings = self.model.embed_all(batch)
-        
+
         if clean_npu_cache == "True":
             torch_npu.npu.empty_cache()
-            
+
         return embed_pb2.RawEmbedResponse(all_embeddings=embeddings)
-    
+
     async def Predict(self, request, context):
         max_input_length = self.model.max_input_length
         batch = self.model.batch_type.from_pb(
@@ -63,7 +65,7 @@ class EmbeddingService(embed_pb2_grpc.EmbeddingServiceServicer):
 
         if clean_npu_cache == "True":
             torch_npu.npu.empty_cache()
-            
+
         return embed_pb2.PredictResponse(scores=scores)
 
 
@@ -90,10 +92,10 @@ def serve(
                 ExceptionInterceptor(),
                 UDSOpenTelemetryAioServerInterceptor(),
             ],
-            options = [
-                ('grpc_max_send_message_length', 100 * 1024 * 1024),
-                ('grpc_max_recieve_message_length', 100 * 1024 * 1024),
-            ]
+            options=[
+                ("grpc_max_send_message_length", 100 * 1024 * 1024),
+                ("grpc_max_recieve_message_length", 100 * 1024 * 1024),
+            ],
         )
         embed_pb2_grpc.add_EmbeddingServiceServicer_to_server(
             EmbeddingService(model), server

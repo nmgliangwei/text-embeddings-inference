@@ -65,18 +65,18 @@ class JinaBertEmbeddings:
 
     def __init__(self, handle, device, dtype, config: JinaBertConfig):
         self.word_embeddings_weight = (
-            handle.get_tensor(f"embeddings.word_embeddings.weight").to(dtype).to(device)
+            handle.get_tensor("embeddings.word_embeddings.weight").to(dtype).to(device)
         )
         self.token_type_embeddings_weight = (
-            handle.get_tensor(f"embeddings.token_type_embeddings.weight")
+            handle.get_tensor("embeddings.token_type_embeddings.weight")
             .to(dtype)
             .to(device)
         )
         self.layernorm_weight = (
-            handle.get_tensor(f"embeddings.LayerNorm.weight").to(dtype).to(device)
+            handle.get_tensor("embeddings.LayerNorm.weight").to(dtype).to(device)
         )
         self.layernorm_bias = (
-            handle.get_tensor(f"embeddings.LayerNorm.bias").to(dtype).to(device)
+            handle.get_tensor("embeddings.LayerNorm.bias").to(dtype).to(device)
         )
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
