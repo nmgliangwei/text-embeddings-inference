@@ -116,15 +116,21 @@ def get_model(model_path: Path, dtype: Optional[str], pool: str):
         else:
             return create_model(DefaultModel, model_path, device, datatype, pool)
 
-    if (config.model_type == "roberta" or config.model_type == "xlm-roberta") and pool != "splade":
+    if (
+        config.model_type == "roberta" or config.model_type == "xlm-roberta"
+    ) and pool != "splade":
         if str(model_path).endswith("unixcoder-base"):
             return create_model(UniXcoderModel, model_path, device, datatype)
-        
-        if device.type in ["npu"] and datatype in [torch.float16, torch.bfloat16] and FLASH_ATTENTION:
+
+        if (
+            device.type in ["npu"]
+            and datatype in [torch.float16, torch.bfloat16]
+            and FLASH_ATTENTION
+        ):
             return create_model(FlashRoberta, model_path, device, datatype)
         else:
             return create_model(DefaultModel, model_path, device, datatype, pool)
-        
+
     if config.model_type == "mistral" and device.type == "hpu":
         try:
             return create_model(FlashMistral, model_path, device, datatype, pool)
@@ -135,7 +141,7 @@ def get_model(model_path: Path, dtype: Optional[str], pool: str):
         try:
             return create_model(FlashQwen3, model_path, device, datatype, pool)
         except FileNotFoundError:
-            return create_model(DefaultModel, model_path, device, datatype, pool)   
+            return create_model(DefaultModel, model_path, device, datatype, pool)
 
     if config.model_type == "qwen2" and device.type == "npu":
         try:

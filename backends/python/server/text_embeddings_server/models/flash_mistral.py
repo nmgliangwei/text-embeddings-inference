@@ -333,7 +333,7 @@ class FlashMistralModel:
         self.norm = MistralRMSNorm(
             model_path,
             weight_map_json["weight_map"],
-            f"norm.weight",
+            "norm.weight",
             device,
             dtype,
             eps=config.rms_norm_eps,

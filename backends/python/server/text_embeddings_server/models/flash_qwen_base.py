@@ -92,8 +92,9 @@ class QwenRMSNorm:
             )
             return hidden_states
         elif hidden_states.device.type == "npu":
-            return torch_npu.npu_rms_norm(hidden_states,
-                                          self.weight, epsilon=self.variance_epsilon)[0]
+            return torch_npu.npu_rms_norm(
+                hidden_states, self.weight, epsilon=self.variance_epsilon
+            )[0]
         else:
             input_dtype = hidden_states.dtype
             hidden_states = hidden_states.to(torch.float32)
@@ -130,7 +131,9 @@ class QwenMLP:
             dtype,
             device,
         )
-        self.gate_up_proj_weight = torch.cat([self.gate_proj_weight, self.up_proj_weight], dim=0)
+        self.gate_up_proj_weight = torch.cat(
+            [self.gate_proj_weight, self.up_proj_weight], dim=0
+        )
         self.down_proj_weight = load_weight(
             model_path,
             weight_map,
@@ -190,18 +193,34 @@ class QwenDecoderLayer:
         )
 
     def forward(
-        self, hidden_states, residual, position_embeddings, cu_seqlens, max_s, attn_mask=None
+        self,
+        hidden_states,
+        residual,
+        position_embeddings,
+        cu_seqlens,
+        max_s,
+        attn_mask=None,
     ):
         if residual is None:
             residual = hidden_states
             hidden_states = self.input_layernorm.forward(hidden_states)
         else:
-            hidden_states, _, residual = torch_npu.npu_add_rms_norm(hidden_states, residual, self.input_layernorm.weight, epsilon=self.config.rms_norm_eps)
+            hidden_states, _, residual = torch_npu.npu_add_rms_norm(
+                hidden_states,
+                residual,
+                self.input_layernorm.weight,
+                epsilon=self.config.rms_norm_eps,
+            )
         hidden_states = self.attention.forward(
             hidden_states, position_embeddings, cu_seqlens, max_s, attn_mask
         )
 
-        hidden_states, _, residual = torch_npu.npu_add_rms_norm(hidden_states, residual, self.post_attention_layernorm.weight, epsilon=self.config.rms_norm_eps)
+        hidden_states, _, residual = torch_npu.npu_add_rms_norm(
+            hidden_states,
+            residual,
+            self.post_attention_layernorm.weight,
+            epsilon=self.config.rms_norm_eps,
+        )
         hidden_states = self.mlp.forward(hidden_states)
         return hidden_states, residual
 
@@ -242,7 +261,9 @@ class QwenRotaryEmbedding(nn.Module):
 
 
 class FlashQwenModel:
-    def __init__(self, model_path, weight_map, prefix, device, dtype, config, attention_cls):
+    def __init__(
+        self, model_path, weight_map, prefix, device, dtype, config, attention_cls
+    ):
         self.word_embeddings_weight = load_weight(
             model_path,
             weight_map,
@@ -270,7 +291,7 @@ class FlashQwenModel:
             model_path,
             weight_map,
             prefix,
-            f"norm.weight",
+            "norm.weight",
             device,
             dtype,
             eps=config.rms_norm_eps,
@@ -291,7 +312,14 @@ class FlashQwenModel:
         residual = None
         for layer in self.layers:
             hidden_states, residual = layer.forward(
-                hidden_states, residual, position_embeddings, cu_seqlens, max_s, attn_mask
+                hidden_states,
+                residual,
+                position_embeddings,
+                cu_seqlens,
+                max_s,
+                attn_mask,
             )
-        hidden_states, _, _ = torch_npu.npu_add_rms_norm(hidden_states, residual, self.norm.weight, epsilon=self.config.rms_norm_eps)
+        hidden_states, _, _ = torch_npu.npu_add_rms_norm(
+            hidden_states, residual, self.norm.weight, epsilon=self.config.rms_norm_eps
+        )
         return BaseModelOutputWithPast(last_hidden_state=hidden_states)

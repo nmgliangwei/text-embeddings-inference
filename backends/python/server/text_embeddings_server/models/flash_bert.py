@@ -4,14 +4,20 @@ from torch import nn
 import torch_npu
 import torch.nn.functional as F
 from loguru import logger
-from typing import Type, List, Union
+from typing import List, Union
 from safetensors import safe_open
 from safetensors.torch import save_file
 from transformers.activations import ACT2FN
 from transformers.models.bert import BertConfig
 from opentelemetry import trace
 from text_embeddings_server.models import Model
-from text_embeddings_server.models.types import FlashBatch, PaddedBatch, Embedding, Score, TokenEmbedding
+from text_embeddings_server.models.types import (
+    FlashBatch,
+    PaddedBatch,
+    Embedding,
+    Score,
+    TokenEmbedding,
+)
 from text_embeddings_server.utils.flash_attn import attention
 from text_embeddings_server.utils.device import use_ipex
 
@@ -107,14 +113,14 @@ class FastLayerNorm:
 
                 res = residual if residual is not None else hidden_states
             else:
-                normed_hidden_states = torch_npu.npu_add_layer_norm(hidden_states,
-                                                                    residual,
-                                                                    self.weight,
-                                                                    self.bias,
-                                                                    self.variance_epsilon,
-                                                                    )[0]
+                normed_hidden_states = torch_npu.npu_add_layer_norm(
+                    hidden_states,
+                    residual,
+                    self.weight,
+                    self.bias,
+                    self.variance_epsilon,
+                )[0]
                 res = residual if residual is not None else hidden_states
-
 
         return normed_hidden_states, res
 
@@ -268,7 +274,9 @@ class BertLayer:
             hidden_states, self.intermediate_weight, self.intermediate_bias
         )
         hidden_states = self.intermediate_act_fn(hidden_states)
-        hidden_states = torch_npu.npu_linear(hidden_states, self.output_weight, self.output_bias)
+        hidden_states = torch_npu.npu_linear(
+            hidden_states, self.output_weight, self.output_bias
+        )
         hidden_states, _ = self.layer_norm.forward(hidden_states, residual)
         return hidden_states
 
@@ -316,10 +324,10 @@ class BertClassificationHead(nn.Module):
         super().__init__()
         self.num_labels = config.num_labels
         self.classifier_dense_weight = (
-            handle.get_tensor(f"bert.pooler.dense.weight").to(dtype).to(device)
+            handle.get_tensor("bert.pooler.dense.weight").to(dtype).to(device)
         )
         self.classifier_dense_bias = (
-            handle.get_tensor(f"bert.pooler.dense.bias").to(dtype).to(device)
+            handle.get_tensor("bert.pooler.dense.bias").to(dtype).to(device)
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -340,7 +348,17 @@ class BertForSequenceClassification(nn.Module):
         self.classifier = BertClassificationHead(handle, device, dtype, config)
 
     def forward(
-            self,
+        self,
+        input_ids,
+        token_type_ids,
+        position_ids,
+        cu_seqlens,
+        max_s,
+        mask=None,
+        attn_mask=None,
+    ):
+
+        sequence_output = self.bert.forward(
             input_ids,
             token_type_ids,
             position_ids,
@@ -348,17 +366,9 @@ class BertForSequenceClassification(nn.Module):
             max_s,
             mask=None,
             attn_mask=None,
-            ):
-
-        sequence_output = self.bert.forward(input_ids,
-                                    token_type_ids,
-                                    position_ids,
-                                    cu_seqlens,
-                                    max_s,
-                                    mask=None,
-                                    attn_mask=None)
+        )
         embedding = sequence_output[cu_seqlens[:-1]]
-        logits =  self.classifier.forward(embedding)
+        logits = self.classifier.forward(embedding)
         return logits
 
 
@@ -381,11 +391,17 @@ class FlashBert(Model):
         safe_weight_path = model_path / "model.safetensors"
         bin_weight_path = model_path / "pytorch_model.bin"
         if not safe_weight_path.exists() and not bin_weight_path.exists():
-            logger.error(f"pytorch_model.bin and model.safetensors do not exist")
-            raise FileNotFoundError(f"pytorch_model.bin and model.safetensors do not exist")
+            logger.error("pytorch_model.bin and model.safetensors do not exist")
+            raise FileNotFoundError(
+                "pytorch_model.bin and model.safetensors do not exist"
+            )
         if not safe_weight_path.exists():
-            logger.info(f"model.safetensors does not exist, translate pytorch_model.bin to model.safetensors")
-            stat_dict = torch.load(bin_weight_path.as_posix(), map_location=torch.device('cpu'))
+            logger.info(
+                "model.safetensors does not exist, translate pytorch_model.bin to model.safetensors"
+            )
+            stat_dict = torch.load(
+                bin_weight_path.as_posix(), map_location=torch.device("cpu")
+            )
             save_file(stat_dict, safe_weight_path.as_posix(), metadata={"format": "pt"})
 
         with safe_open(model_path / "model.safetensors", framework="pt") as f:
@@ -429,12 +445,7 @@ class FlashBert(Model):
         # 一次性将所有结果从NPU拷贝到CPU，避免多次拷贝
         cpu_results = embedding.cpu().numpy()
 
-        return [
-            Embedding(
-                values=cpu_results[i].tolist()
-            )
-            for i in range(len(batch))
-        ]
+        return [Embedding(values=cpu_results[i].tolist()) for i in range(len(batch))]
 
     @tracer.start_as_current_span("embed_all")
     def embed_all(self, batch: Union[FlashBatch, PaddedBatch]):
@@ -460,15 +471,14 @@ class FlashBert(Model):
         seqlens = cu_seqlens[1:] - cu_seqlens[:-1]
         seqlens_list = seqlens.tolist()
         cpu_results = all_embedding.tolist()
-        embedding_result=[]
+        embedding_result = []
         start = 0
         for i in range(batch_size):
-            embedding_tmp=[
-                Embedding(values=cpu_results[start + j])
-                for j in range(seqlens_list[i])
+            embedding_tmp = [
+                Embedding(values=cpu_results[start + j]) for j in range(seqlens_list[i])
             ]
             start += seqlens_list[i]
-            token_embeddings=TokenEmbedding(embeddings=embedding_tmp)
+            token_embeddings = TokenEmbedding(embeddings=embedding_tmp)
             embedding_result.append(token_embeddings)
 
         return embedding_result
