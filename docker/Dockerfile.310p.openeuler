@@ -18,6 +18,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     yum clean all && \
     rm -rf /var/cache/yum
 
+RUN pip3 install attrs cython numpy decorator sympy cffi pyyaml pathlib2 psutil protobuf==3.20.0 scipy requests absl-py
+
 RUN groupadd HwHiAiUser && useradd -g HwHiAiUser -d /home/HwHiAiUser -m HwHiAiUser -s /bin/bash
 
 USER HwHiAiUser:HwHiAiUser
