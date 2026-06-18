@@ -14,6 +14,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     zlib1g-dev unzip tar gcc make cmake libffi-dev g++ pkg-config protobuf-compiler vim && \
     apt clean && rm -rf /var/lib/apt/lists/*
 
+RUN pip3 install attrs cython numpy decorator sympy cffi pyyaml pathlib2 psutil protobuf==3.20.0 scipy requests absl-py
+
 RUN groupadd HwHiAiUser && useradd -g HwHiAiUser -d /home/HwHiAiUser -m HwHiAiUser -s /bin/bash
 
 USER HwHiAiUser:HwHiAiUser
