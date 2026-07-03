@@ -400,8 +400,7 @@ class FlashBert(Model):
                 "model.safetensors does not exist, translate pytorch_model.bin to model.safetensors"
             )
             stat_dict = torch.load(
-                bin_weight_path.as_posix(), map_location=torch.device("cpu")
-            )
+                bin_weight_path.as_posix(), map_location=torch.device("cpu"), weights_only=True)
             save_file(stat_dict, safe_weight_path.as_posix(), metadata={"format": "pt"})
 
         with safe_open(model_path / "model.safetensors", framework="pt") as f:

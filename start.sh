@@ -22,7 +22,7 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: $0 --model-id <model_path_or_id> [args for text-embeddings-router]"
             text-embeddings-router --help
             exit 0
-            ;; 
+            ;;
         *)
             ADDITIONAL_ARGS="$ADDITIONAL_ARGS $1"
             shift
@@ -111,9 +111,7 @@ function start_tei_service() {
     echo "Additional arguments: ${additional_args}"
     cd "${model_parent_dir}"
     # Construct the full command
-    cmd="text-embeddings-router --model-id "${model_name}" ${additional_args}"
-    echo "Executing: ${cmd}"
-    eval "${cmd}"
+    text-embeddings-router --model-id "${model_name}" ${additional_args}
 }
 
 function main() {
