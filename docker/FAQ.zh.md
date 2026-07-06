@@ -57,7 +57,7 @@ python3 text_embeddings_server/cli.py $MODEL_DIR/bge-large-zh-v1.5(根据具体�
 #如果日志出现 "Server started at unix://tmp/text-embeddings-server"表示后端服务启动成功
 ```
 
-## 3 大并发时npu显存持续增加
+## 3 大并发时npu显存持续增加或存在OOM问题
 
 - **方案1 (推荐)**
 
