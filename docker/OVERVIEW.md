@@ -13,7 +13,7 @@
   - [Community](https://www.hiascend.com/)
 
 ## Overview
-This image is based on text embedding inference and is adapted for Huawei NPU cards to provide service interfaces such as embedding and reranker. The interfaces are compatible with the open-source text embedding inference and support models such as embedding, reranker, and Sequence Classification. By default, this image runs as the regular user HwHiAiUser.
+This image is based on text embedding inference and is adapted for Huawei NPU cards to provide service interfaces such as embedding and reranker. The interfaces are compatible with the open-source text embedding inference and support models such as embedding, reranker, and Sequence Classification. By default, this image runs as the regular user `HwHiAiUser`.
 
 ## Dockerfile link corresponding to mirror tags
 
@@ -32,16 +32,11 @@ Tags follow this pattern:
 | `os`             | `ubuntu22.04`, `openeuler24.03` | Base operating system             |
 | `python_version` | `py3.11`                        | Python version                    |
 
-### CANN 9.0.0 + 26.0.0 TEI Image
+### Docker Image Matching Table
+| TEI    | CANN  | torch-npu |
+|--------|-------|-----------|
+| 26.0.0 | 9.0.0 | 2.9.0     |
 
-| Tag                                 | Dockerfile                                                                                                    | Image Content |
-|-------------------------------------|---------------------------------------------------------------------------------------------------------------|---------------|
-| `26.0.0-910b-ubuntu22.04-py3.11`    | [Dockerfile](https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docker/Dockerfile.910b.ubuntu)    | cann + TEI    |
-| `26.0.0-910b-openeuler24.03-py3.11` | [Dockerfile](https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docker/Dockerfile.910b.openeuler) | cann + TEI    |
-| `26.0.0-a3-ubuntu22.04-py3.11`      | [Dockerfile](https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docker/Dockerfile.a3.ubuntu)      | cann + TEI    |
-| `26.0.0-a3-openeuler24.03-py3.11`   | [Dockerfile](https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docker/Dockerfile.a3.openeuler)   | cann + TEI    |
-| `26.0.0-310p-ubuntu22.04-py3.11`    | [Dockerfile](https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docker/Dockerfile.310p.ubuntu)    | cann + TEI    |
-| `26.0.0-310p-openeuler24.03-py3.11` | [Dockerfile](https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docker/Dockerfile.310p.openeuler) | cann + TEI    |
 
 ---
 
@@ -61,7 +56,7 @@ Startup command for version 26.0.0 and later:
 
 ```bash
 export MODEL_DIR=/home/HwHiAiUser/model
-docker run \
+docker run -itd \
     -u <user> \
     --net host \
     --name tei_container \
@@ -76,6 +71,7 @@ docker run \
     -v /etc/ascend_install.info:/etc/ascend_install.info \
     -e MODEL_DIR=$MODEL_DIR \
     -v $MODEL_DIR:$MODEL_DIR \
+    -e PYTORCH_NPU_ALLOC_CONF=max_split_size_mb:256 \
     -itd swr.cn-south-1.myhuaweicloud.com/ascendhub/mis-tei:<tag> --model-id $MODEL_DIR/<model_name> --hostname <listen_ip> --port <listen_port>
 ```
 
@@ -83,7 +79,7 @@ docker run \
 
 ```bash
 export MODEL_DIR=/home/HwHiAiUser/model
-docker run \
+docker run -itd \
     -u <user> \
     --net host \
     --name tei_container \
@@ -98,14 +94,15 @@ docker run \
     -v /usr/local/Ascend/driver/version.info:/usr/local/Ascend/driver/version.info \
     -v /etc/ascend_install.info:/etc/ascend_install.info \
     -v $MODEL_DIR:/home/HwHiAiUser/model \
+    -e PYTORCH_NPU_ALLOC_CONF=max_split_size_mb:256 \
     -itd swr.cn-south-1.myhuaweicloud.com/ascendhub/mis-tei:<tag>  /home/HwHiAiUser/model/<model_name> <listen_ip> <listen_port>
 ```
 
 </details>
 
 #### **Parameter Description**
-
-- The `MODEL_DIR` environment variable specifies the directory on the host machine where the model is stored. TEI inside the container will load the model from this directory.
+- The `MODEL_DIR` environment variable indicates the directory on the host machine where the model is stored. Before running the container, the model weight files need to be downloaded and stored in this directory.
+- `PYTORCH_NPU_ALLOC_CONF` NPU memory block allows splitting up to a limit, for more information please check the [link](https://www.hiascend.com/document/detail/zh/Pytorch/2600/comref/Envvariables/docs/zh/environment_variable_reference/PYTORCH_NPU_ALLOC_CONF.md)
 - Please replace `<user>`、`<tag>`、`<model_name>`、`<listen_ip>`、`<listen_port>` with actual values according to your situation.
 - Please ensure that the model files on the host machine match `<model name>`.
 - The container runs by default as the regular user `HwHiAiUser`. Please make sure the HwHiAiUser has read and write permissions for the models on the host. If you need to specify a different user, add the `-u <user>` parameter when running the container.
@@ -113,19 +110,31 @@ docker run \
 
 ## List of supported models and explanations of specific parameters for each model
 
-| Model Name                          | Description                    | Other required parameters                                                                                                                                                    |
-|-------------------------------------|--------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| BAAI/bge-large-zh-v1.5              | Dense Vector Model             | -                                                                                                                                                                            |
-| BAAI/bge-m3                         | Dense and sparse vector models | -                                                                                                                                                                            |
-| aspire/acge_text_embedding          | Dense Vector Model             | -                                                                                                                                                                            |
-| BAAI/bge-reranker-large             | Ranking Model                  | -                                                                                                                                                                            |
-| BAAI/bge-reranker-v2-m3             | Ranking Model                  | -                                                                                                                                                                            |
-| jinaai/jina-embeddings-v2-base-zh   | Dense Vector Model             | -e TRUST_REMOTE_CODE=1                                                                                                                                                       |
-| Alibaba-NLP/gte-Qwen2-1.5B-instruct | Dense Vector Model             | -e TRUST_REMOTE_CODE=1 <br/>-e IS_CAUSAL=false                                                                                                                               |
-| Alibaba-NLP/gte-Qwen2-7B-instruct   | Dense Vector Model             | -e TRUST_REMOTE_CODE=1 <br/>-e IS_CAUSAL=false                                                                                                                               |
-| Qwen/Qwen3-Embedding-0.6B(4B、8B)    | Dense Vector Model             | -                                                                                                                                                                            |
-| Qwen/Qwen3-Reranker-0.6B(4B、8B)     | Ranking Model                  | -e IS_RERANK=1 <br/> -e DEFAULT_PROMPT="\<Instruct\>: Given a web search query, retrieve relevant passages that answer the query\\n\<Query\>: \<s1\>\\n\<Document\>: \<s2\>" |
-| microsoft/unixcoder-base            | Dense Vector Model             | -                                                                                                                                                                            |
+### Text Embeddings
+| Model Name                                                                                              | Model Type  | Other required parameters                      |
+|---------------------------------------------------------------------------------------------------------|-------------|------------------------------------------------|
+| [BAAI/bge-large-zh-v1.5](https://www.modelscope.cn/models/BAAI/bge-large-zh-v1.5)                       | BERT        | -                                              |
+| [BAAI/bge-m3](https://www.modelscope.cn/models/BAAI/bge-m3)                                             | XLM-RoBERTa | -                                              |
+| [aspire/acge_text_embedding](https://www.modelscope.cn/models/yangjhchs/acge_text_embedding)            | BERT        | -                                              |
+| [jinaai/jina-embeddings-v2-base-zh](https://www.modelscope.cn/models/jinaai/jina-embeddings-v2-base-zh) | BERT        | -e TRUST_REMOTE_CODE=1                         |
+| [Alibaba-NLP/gte-Qwen2-1.5B-instruct](https://www.modelscope.cn/models/iic/gte-Qwen2-1.5B-instruct)     | Qwen2       | -e TRUST_REMOTE_CODE=1 <br/>-e IS_CAUSAL=false |
+| [Alibaba-NLP/gte-Qwen2-7B-instruct](https://www.modelscope.cn/models/iic/gte-Qwen2-7B-instruct)         | Qwen2       | -e TRUST_REMOTE_CODE=1 <br/>-e IS_CAUSAL=false |
+| [Qwen/Qwen3-Embedding-0.6B](https://www.modelscope.cn/models/Qwen/Qwen3-Embedding-0.6B)                 | Qwen3       | -                                              |
+| [Qwen/Qwen3-Embedding-4B](https://www.modelscope.cn/models/Qwen/Qwen3-Embedding-4B)                     | Qwen3       | -                                              |
+| [Qwen/Qwen3-Embedding-8B](https://www.modelscope.cn/models/Qwen/Qwen3-Embedding-8B)                     | Qwen3       | -                                              |
+| [microsoft/unixcoder-base](https://www.modelscope.cn/models/microsoft/unixcoder-base)                   | RoBERTa     | -                                              |
+
+
+### Sequence Classification and Re-Ranking
+| Model Name                                                                                  | Model Type  | Other required parameters                                                                                                                                                    |
+|---------------------------------------------------------------------------------------------|-------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [BAAI/bge-reranker-large](https://www.modelscope.cn/models/BAAI/bge-reranker-large)         | XLM-RoBERTa | -                                                                                                                                                                            |
+| [BAAI/bge-reranker-v2-m3](https://www.modelscope.cn/models/BAAI/bge-reranker-v2-m3)         | XLM-RoBERTa | -                                                                                                                                                                            |
+| [Qwen/Qwen3-Reranker-0.6B](https://www.modelscope.cn/models/Qwen/Qwen3-Reranker-0.6B)       | Qwen3       | -e IS_RERANK=1 <br/> -e DEFAULT_PROMPT="\<Instruct\>: Given a web search query, retrieve relevant passages that answer the query\\n\<Query\>: \<s1\>\\n\<Document\>: \<s2\>" |
+| [Qwen/Qwen3-Reranker-4B](https://www.modelscope.cn/models/Qwen/Qwen3-Reranker-4B)           | Qwen3       | -e IS_RERANK=1 <br/> -e DEFAULT_PROMPT="\<Instruct\>: Given a web search query, retrieve relevant passages that answer the query\\n\<Query\>: \<s1\>\\n\<Document\>: \<s2\>" |
+| [Qwen/Qwen3-Reranker-8B](https://www.modelscope.cn/models/Qwen/Qwen3-Reranker-8B)           | Qwen3       | -e IS_RERANK=1 <br/> -e DEFAULT_PROMPT="\<Instruct\>: Given a web search query, retrieve relevant passages that answer the query\\n\<Query\>: \<s1\>\\n\<Document\>: \<s2\>" |
+| [jason9693/Qwen2.5-1.5B-apeach](https://www.modelscope.cn/models/Howeee/Qwen2.5-1.5B-apeac) | Qwen2       | -                                                                                                                                                                            |
+
 
 ## Interface Test Example
 

@@ -13,7 +13,7 @@
 
 ## 概述
 
-该镜像基于text embedding inference 适配华为NPU卡提供embedding、reranker等服务化接口，接口兼容开源text embedding inference, 支持embedding和reranker、Sequence Classification等模型，该镜像默认以普通用户HwHiAiUser用户运行
+该镜像基于text embedding inference 适配华为NPU卡提供embedding、reranker等服务化接口，接口兼容开源text embedding inference, 支持embedding和reranker、Sequence Classification等模型，该镜像默认以普通用户`HwHiAiUser`用户运行
 
 
 ## 镜像Tags对应的Dockerfile 链接
@@ -33,16 +33,10 @@ Tag 遵循以下格式：
 | `操作系统`     | `ubuntu22.04`、`openeuler24.03` | 基础操作系统    |
 | `python版本` | `py3.11`                       | Python 版本 |
 
-### CANN 9.0.0 + 26.0.0 TEI镜像
-
-| Tag                                 | Dockerfile                                                                                                    | Image Content |
-|-------------------------------------|---------------------------------------------------------------------------------------------------------------|---------------|
-| `26.0.0-910b-ubuntu22.04-py3.11`    | [Dockerfile](https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docker/Dockerfile.910b.ubuntu)    | cann + TEI    |
-| `26.0.0-910b-openeuler24.03-py3.11` | [Dockerfile](https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docker/Dockerfile.910b.openeuler) | cann + TEI    |
-| `26.0.0-a3-ubuntu22.04-py3.11`      | [Dockerfile](https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docker/Dockerfile.a3.ubuntu)      | cann + TEI    |
-| `26.0.0-a3-openeuler24.03-py3.11`   | [Dockerfile](https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docker/Dockerfile.a3.openeuler)   | cann + TEI    |
-| `26.0.0-310p-ubuntu22.04-py3.11`    | [Dockerfile](https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docker/Dockerfile.310p.ubuntu)    | cann + TEI    |
-| `26.0.0-310p-openeuler24.03-py3.11` | [Dockerfile](https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docker/Dockerfile.310p.openeuler) | cann + TEI    |
+### 镜像配套表
+| TEI    | CANN  | torch-npu |
+|--------|-------|-----------|
+| 26.0.0 | 9.0.0 | 2.9.0     |
 
 ---
 
@@ -77,6 +71,7 @@ docker run \
     -v /etc/ascend_install.info:/etc/ascend_install.info \
     -e MODEL_DIR=$MODEL_DIR \
     -v $MODEL_DIR:$MODEL_DIR \
+    -e PYTORCH_NPU_ALLOC_CONF=max_split_size_mb:256 \
     -itd swr.cn-south-1.myhuaweicloud.com/ascendhub/mis-tei:<tag> --model-id $MODEL_DIR/<model_name> --hostname <listen_ip> --port <listen_port>
 ```
 
@@ -99,6 +94,7 @@ docker run \
     -v /usr/local/Ascend/driver/version.info:/usr/local/Ascend/driver/version.info \
     -v /etc/ascend_install.info:/etc/ascend_install.info \
     -v $MODEL_DIR:/home/HwHiAiUser/model \
+    -e PYTORCH_NPU_ALLOC_CONF=max_split_size_mb:256 \
     -itd swr.cn-south-1.myhuaweicloud.com/ascendhub/mis-tei:<tag>  /home/HwHiAiUser/model/<model_name> <listen_ip> <listen_port>
 ```
 
@@ -106,7 +102,8 @@ docker run \
 
 #### **参数说明**
 
-- `MODEL_DIR` 环境变量指定了宿主机上的模型存放目录，容器内 TEI 会从该目录加载模型。
+- `MODEL_DIR` 环境变量表示宿主机上模型存放目录，在运行容器之前需将模型权重文件下载存放此目录下。
+- `PYTORCH_NPU_ALLOC_CONF` npu内存块允许切分上限，消息介绍请参考[链接](https://www.hiascend.com/document/detail/zh/Pytorch/2600/comref/Envvariables/docs/zh/environment_variable_reference/PYTORCH_NPU_ALLOC_CONF.md)
 - 请根据实际情况替换 `<user>`、`<tag>`、`<model_name>`、`<listen_ip>`、`<listen_port>`为实际值。
 - 请确保宿主机上的模型文件与 `<model_name>` 匹配。
 - 容器默认以普通用户`HwHiAiUser`运行, 请确保HwHiAiUser用户有读写宿主机上模型权限，如需指定其他用户，请在运行容器时添加 `-u <user>` 参数。
@@ -114,19 +111,31 @@ docker run \
 
 ## 支持的模型列表和各模型特定参数说明
 
-| 模型名                                 | 说明        | 其他必配参数                                                                                                                                                                       |
-|-------------------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| BAAI/bge-large-zh-v1.5              | 稠密向量模型    | -                                                                                                                                                                            |
-| BAAI/bge-m3                         | 稠密和稀疏向量模型 | -                                                                                                                                                                            |
-| aspire/acge_text_embedding          | 稠密向量模型    | -                                                                                                                                                                            |
-| BAAI/bge-reranker-large             | 排序模型      | -                                                                                                                                                                            |
-| BAAI/bge-reranker-v2-m3             | 排序模型      | -                                                                                                                                                                            |
-| jinaai/jina-embeddings-v2-base-zh   | 稠密向量模型    | -e TRUST_REMOTE_CODE=1                                                                                                                                                       |
-| Alibaba-NLP/gte-Qwen2-1.5B-instruct | 稠密向量模型    | -e TRUST_REMOTE_CODE=1 <br/>-e IS_CAUSAL=false                                                                                                                               |
-| Alibaba-NLP/gte-Qwen2-7B-instruct   | 稠密向量模型    | -e TRUST_REMOTE_CODE=1 <br/>-e IS_CAUSAL=false                                                                                                                               |
-| Qwen/Qwen3-Embedding-0.6B(4B、8B)    | 稠密向量模型    | -                                                                                                                                                                            |
-| Qwen/Qwen3-Reranker-0.6B(4B、8B)     | 排序模型      | -e IS_RERANK=1 <br/> -e DEFAULT_PROMPT="\<Instruct\>: Given a web search query, retrieve relevant passages that answer the query\\n\<Query\>: \<s1\>\\n\<Document\>: \<s2\>" |
-| microsoft/unixcoder-base            | 稠密向量模型    | -                                                                                                                                                                            |
+### 文本嵌入模型
+| 模型名称                                                                                                    | 模型类型        | 模型启动必配参数                                       |
+|---------------------------------------------------------------------------------------------------------|-------------|------------------------------------------------|
+| [BAAI/bge-large-zh-v1.5](https://www.modelscope.cn/models/BAAI/bge-large-zh-v1.5)                       | BERT        | -                                              |
+| [BAAI/bge-m3](https://www.modelscope.cn/models/BAAI/bge-m3)                                             | XLM-RoBERTa | -                                              |
+| [aspire/acge_text_embedding](https://www.modelscope.cn/models/yangjhchs/acge_text_embedding)            | BERT        | -                                              |
+| [jinaai/jina-embeddings-v2-base-zh](https://www.modelscope.cn/models/jinaai/jina-embeddings-v2-base-zh) | BERT        | -e TRUST_REMOTE_CODE=1                         |
+| [Alibaba-NLP/gte-Qwen2-1.5B-instruct](https://www.modelscope.cn/models/iic/gte-Qwen2-1.5B-instruct)     | Qwen2       | -e TRUST_REMOTE_CODE=1 <br/>-e IS_CAUSAL=false |
+| [Alibaba-NLP/gte-Qwen2-7B-instruct](https://www.modelscope.cn/models/iic/gte-Qwen2-7B-instruct)         | Qwen2       | -e TRUST_REMOTE_CODE=1 <br/>-e IS_CAUSAL=false |
+| [Qwen/Qwen3-Embedding-0.6B](https://www.modelscope.cn/models/Qwen/Qwen3-Embedding-0.6B)                 | Qwen3       | -                                              |
+| [Qwen/Qwen3-Embedding-4B](https://www.modelscope.cn/models/Qwen/Qwen3-Embedding-4B)                     | Qwen3       | -                                              |
+| [Qwen/Qwen3-Embedding-8B](https://www.modelscope.cn/models/Qwen/Qwen3-Embedding-8B)                     | Qwen3       | -                                              |
+| [microsoft/unixcoder-base](https://www.modelscope.cn/models/microsoft/unixcoder-base)                   | RoBERTa     | -                                              |
+
+
+### 序列分类和排序模型
+| 模型名称                                                                                        | 模型类型        | 模型启动必配参数                                                                                                                                                                     |
+|---------------------------------------------------------------------------------------------|-------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [BAAI/bge-reranker-large](https://www.modelscope.cn/models/BAAI/bge-reranker-large)         | XLM-RoBERTa | -                                                                                                                                                                            |
+| [BAAI/bge-reranker-v2-m3](https://www.modelscope.cn/models/BAAI/bge-reranker-v2-m3)         | XLM-RoBERTa | -                                                                                                                                                                            |
+| [Qwen/Qwen3-Reranker-0.6B](https://www.modelscope.cn/models/Qwen/Qwen3-Reranker-0.6B)       | Qwen3       | -e IS_RERANK=1 <br/> -e DEFAULT_PROMPT="\<Instruct\>: Given a web search query, retrieve relevant passages that answer the query\\n\<Query\>: \<s1\>\\n\<Document\>: \<s2\>" |
+| [Qwen/Qwen3-Reranker-4B](https://www.modelscope.cn/models/Qwen/Qwen3-Reranker-4B)           | Qwen3       | -e IS_RERANK=1 <br/> -e DEFAULT_PROMPT="\<Instruct\>: Given a web search query, retrieve relevant passages that answer the query\\n\<Query\>: \<s1\>\\n\<Document\>: \<s2\>" |
+| [Qwen/Qwen3-Reranker-8B](https://www.modelscope.cn/models/Qwen/Qwen3-Reranker-8B)           | Qwen3       | -e IS_RERANK=1 <br/> -e DEFAULT_PROMPT="\<Instruct\>: Given a web search query, retrieve relevant passages that answer the query\\n\<Query\>: \<s1\>\\n\<Document\>: \<s2\>" |
+| [jason9693/Qwen2.5-1.5B-apeach](https://www.modelscope.cn/models/Howeee/Qwen2.5-1.5B-apeac) | Qwen2       | -                                                                                                                                                                            |
+
 
 ## 接口测试样例
 

@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 620" width="1200" height="620">
+  <defs>
+    <filter id="cardShadow" x="-4%" y="-4%" width="108%" height="112%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#202124" flood-opacity="0.06"/>
+    </filter>
+    <clipPath id="headerClip"><rect x="10" y="10" width="1180" height="48" rx="12" ry="12"/></clipPath>
+    <marker id="arrowSolid" viewBox="0 0 10 10" markerWidth="8" markerHeight="8" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#1A73E8" stroke="none"/>
+    </marker>
+    <marker id="arrowDash" viewBox="0 0 10 10" markerWidth="8" markerHeight="8" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#5F6368" stroke="none"/>
+    </marker>
+    <marker id="arrowDown" viewBox="0 0 10 10" markerWidth="8" markerHeight="8" refX="5" refY="9" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,1 L9,5 L0,9 Z" fill="#1A73E8" stroke="none"/>
+    </marker>
+  </defs>
+
+  <!-- 外框 -->
+  <rect x="10" y="10" width="1180" height="600" rx="12" fill="#F8F9FA" stroke="#DADCE0" stroke-width="1"/>
+  <!-- 标题栏 -->
+  <g clip-path="url(#headerClip)"><rect x="10" y="10" width="1180" height="48" fill="#1A73E8"/></g>
+  <text x="600" y="42" text-anchor="middle" font-family="Roboto, PingFang SC, Microsoft YaHei, sans-serif" font-size="20" font-weight="700" fill="#FFFFFF">Text Embeddings Inference &#26550;&#26500;&#20840;&#26223;</text>
+
+  <!-- ========== &#31532;&#19968;&#23618;&#65306;&#26381;&#21153;&#25509;&#20837;&#23618; ========== -->
+  <rect x="26" y="68" width="1148" height="108" rx="10" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+  <text x="44" y="88" font-family="Roboto, PingFang SC, sans-serif" font-size="11" font-weight="700" fill="#5F6368">&#26381;&#21153;&#25509;&#20837;&#23618;</text>
+
+  <!-- HTTP Server -->
+  <g filter="url(#cardShadow)">
+    <rect x="44" y="98" width="340" height="64" rx="8" fill="#E8F0FE" stroke="#1A73E8" stroke-width="1.5"/>
+    <text x="214" y="122" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="13" font-weight="700" fill="#1A73E8">HTTP Server</text>
+    <text x="214" y="140" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">/embed &#183; /rerank &#183; /predict &#183; /embed_sparse</text>
+    <text x="214" y="154" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">OpenAI &#20860;&#23481; / Swagger UI</text>
+  </g>
+
+  <!-- gRPC Server -->
+  <g filter="url(#cardShadow)">
+    <rect x="404" y="98" width="340" height="64" rx="8" fill="#E8F0FE" stroke="#1A73E8" stroke-width="1.5"/>
+    <text x="574" y="122" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="13" font-weight="700" fill="#1A73E8">gRPC Server</text>
+    <text x="574" y="140" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">EmbeddingService</text>
+    <text x="574" y="154" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">Embed &#183; EmbedAll &#183; Predict &#183; Health</text>
+  </g>
+
+  <!-- Prometheus / OpenTelemetry -->
+  <g filter="url(#cardShadow)">
+    <rect x="764" y="98" width="392" height="64" rx="8" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+    <text x="960" y="122" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="13" font-weight="700" fill="#1A73E8">&#21487;&#35266;&#27979;&#24615;</text>
+    <text x="960" y="140" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">Prometheus Metrics &#183; OpenTelemetry Tracing</text>
+    <text x="960" y="154" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">Distributed Tracing &#183; &#24615;&#33021;&#30417;&#25511;</text>
+  </g>
+
+  <!-- ========== &#31532;&#20108;&#23618;&#65306;Router &#26680;&#24515;&#23618; ========== -->
+  <rect x="26" y="188" width="1148" height="128" rx="10" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+  <text x="44" y="208" font-family="Roboto, PingFang SC, sans-serif" font-size="11" font-weight="700" fill="#5F6368">Router &#26680;&#24515;&#23618; (Rust)</text>
+
+  <!-- Tokenization -->
+  <g filter="url(#cardShadow)">
+    <rect x="44" y="218" width="260" height="84" rx="8" fill="#FFFFFF" stroke="#1A73E8" stroke-width="1.2"/>
+    <text x="174" y="242" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="12" font-weight="700" fill="#1A73E8">Tokenization</text>
+    <text x="174" y="260" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">HuggingFace Tokenizers</text>
+    <text x="174" y="276" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">&#20998;&#35789; / &#25130;&#26029; / Prompt&#39044;&#22788;&#29702;</text>
+    <text x="174" y="292" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">&#22810;Worker&#24182;&#34892;&#22788;&#29702;</text>
+  </g>
+
+  <!-- Queue -->
+  <g filter="url(#cardShadow)">
+    <rect x="324" y="218" width="260" height="84" rx="8" fill="#FFFFFF" stroke="#1A73E8" stroke-width="1.2"/>
+    <text x="454" y="242" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="12" font-weight="700" fill="#1A73E8">Queue</text>
+    <text x="454" y="260" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">&#21160;&#24577;&#25209;&#22788;&#29702;</text>
+    <text x="454" y="276" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">Token&#25209;&#37327;&#25511;&#21046;</text>
+    <text x="454" y="292" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">&#24182;&#21457;&#38480;&#27969; / &#32972;&#21387;&#25511;&#21046;</text>
+  </g>
+
+  <!-- Infer -->
+  <g filter="url(#cardShadow)">
+    <rect x="604" y="218" width="260" height="84" rx="8" fill="#E8F0FE" stroke="#1A73E8" stroke-width="1.5"/>
+    <text x="734" y="242" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="12" font-weight="700" fill="#1A73E8">Infer</text>
+    <text x="734" y="260" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">&#25512;&#29702;&#35843;&#24230;&#22120;</text>
+    <text x="734" y="276" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">Batch&#25351;&#27966; / Pooling&#31574;&#36873;</text>
+    <text x="734" y="292" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">CLS / Mean / SPLADE / LastToken</text>
+  </g>
+
+  <!-- Model Download -->
+  <g filter="url(#cardShadow)">
+    <rect x="884" y="218" width="272" height="84" rx="8" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+    <text x="1020" y="242" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="12" font-weight="700" fill="#1A73E8">&#27169;&#22411;&#31649;&#29702;</text>
+    <text x="1020" y="260" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">HuggingFace Hub / ModelScope</text>
+    <text x="1020" y="276" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">&#26412;&#22320;&#36335;&#24452; / Safetensors&#21152;&#36733;</text>
+    <text x="1020" y="292" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">&#27169;&#22411;&#33258;&#21160;&#19979;&#36733;&#19982;&#32531;&#23384;</text>
+  </g>
+
+  <!-- Router&#23618;&#20869;&#37096;&#36830;&#32447; -->
+  <path d="M 304 260 L 324 260" fill="none" stroke="#1A73E8" stroke-width="2" marker-end="url(#arrowSolid)"/>
+  <text x="314" y="252" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="9" font-weight="600" fill="#1A73E8">&#20256;&#36882;</text>
+  <path d="M 584 260 L 604 260" fill="none" stroke="#1A73E8" stroke-width="2" marker-end="url(#arrowSolid)"/>
+  <text x="594" y="252" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="9" font-weight="600" fill="#1A73E8">&#20256;&#36882;</text>
+
+  <!-- ========== &#31532;&#19977;&#23618;&#65306;&#21518;&#31471;&#25512;&#29702;&#23618; ========== -->
+  <rect x="26" y="328" width="1148" height="168" rx="10" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+  <text x="44" y="348" font-family="Roboto, PingFang SC, sans-serif" font-size="11" font-weight="700" fill="#5F6368">&#21518;&#31471;&#25512;&#29702;&#23618;</text>
+
+  <!-- Python Backend (NPU) -->
+  <g filter="url(#cardShadow)">
+    <rect x="44" y="358" width="276" height="124" rx="8" fill="#E8F0FE" stroke="#1A73E8" stroke-width="1.5"/>
+    <text x="182" y="378" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="12" font-weight="700" fill="#1A73E8">Python Backend (NPU)</text>
+    <text x="182" y="396" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">torch_npu &#183; CANN</text>
+    <g filter="url(#cardShadow)"><rect x="56" y="406" width="118" height="32" rx="6" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+      <text x="115" y="426" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="9.5" font-weight="600" fill="#1A73E8">FlashBert</text></g>
+    <g filter="url(#cardShadow)"><rect x="182" y="406" width="118" height="32" rx="6" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+      <text x="241" y="426" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="9.5" font-weight="600" fill="#1A73E8">FlashRoberta</text></g>
+    <g filter="url(#cardShadow)"><rect x="56" y="444" width="118" height="32" rx="6" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+      <text x="115" y="464" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="9.5" font-weight="600" fill="#1A73E8">FlashQwen3</text></g>
+    <g filter="url(#cardShadow)"><rect x="182" y="444" width="118" height="32" rx="6" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+      <text x="241" y="464" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="9.5" font-weight="600" fill="#1A73E8">FlashQwen2</text></g>
+  </g>
+
+  <!-- Python Backend (CUDA) -->
+  <g filter="url(#cardShadow)">
+    <rect x="340" y="358" width="276" height="124" rx="8" fill="#FFFFFF" stroke="#1A73E8" stroke-width="1.2"/>
+    <text x="478" y="378" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="12" font-weight="700" fill="#1A73E8">Python Backend (CUDA)</text>
+    <text x="478" y="396" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">Flash Attention V2 &#183; cuBLASLt</text>
+    <g filter="url(#cardShadow)"><rect x="352" y="406" width="118" height="32" rx="6" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+      <text x="411" y="426" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="9.5" font-weight="600" fill="#1A73E8">FlashMistral</text></g>
+    <g filter="url(#cardShadow)"><rect x="478" y="406" width="118" height="32" rx="6" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+      <text x="537" y="426" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="9.5" font-weight="600" fill="#1A73E8">FlashJinaBert</text></g>
+    <g filter="url(#cardShadow)"><rect x="352" y="444" width="118" height="32" rx="6" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+      <text x="411" y="464" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="9.5" font-weight="600" fill="#1A73E8">FlashNomic</text></g>
+    <g filter="url(#cardShadow)"><rect x="478" y="444" width="118" height="32" rx="6" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+      <text x="537" y="464" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="9.5" font-weight="600" fill="#1A73E8">FlashModernBert</text></g>
+  </g>
+
+  <!-- Candle Backend -->
+  <g filter="url(#cardShadow)">
+    <rect x="636" y="358" width="276" height="124" rx="8" fill="#FFFFFF" stroke="#1A73E8" stroke-width="1.2"/>
+    <text x="774" y="378" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="12" font-weight="700" fill="#1A73E8">Candle Backend (Rust)</text>
+    <text x="774" y="396" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">Candle &#183; CUDA Kernels</text>
+    <g filter="url(#cardShadow)"><rect x="648" y="406" width="118" height="32" rx="6" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+      <text x="707" y="426" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="9.5" font-weight="600" fill="#1A73E8">BertModel</text></g>
+    <g filter="url(#cardShadow)"><rect x="774" y="406" width="118" height="32" rx="6" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+      <text x="833" y="426" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="9.5" font-weight="600" fill="#1A73E8">Qwen3Model</text></g>
+    <g filter="url(#cardShadow)"><rect x="648" y="444" width="118" height="32" rx="6" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+      <text x="707" y="464" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="9.5" font-weight="600" fill="#1A73E8">Gemma3Model</text></g>
+    <g filter="url(#cardShadow)"><rect x="774" y="444" width="118" height="32" rx="6" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+      <text x="833" y="464" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="9.5" font-weight="600" fill="#1A73E8">GTEModel</text></g>
+  </g>
+
+  <!-- ORT Backend -->
+  <g filter="url(#cardShadow)">
+    <rect x="932" y="358" width="224" height="124" rx="8" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+    <text x="1044" y="378" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="12" font-weight="700" fill="#1A73E8">ORT Backend</text>
+    <text x="1044" y="396" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">ONNX Runtime</text>
+    <g filter="url(#cardShadow)"><rect x="944" y="406" width="200" height="32" rx="6" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+      <text x="1044" y="426" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="9.5" font-weight="600" fill="#1A73E8">ONNX&#27169;&#22411;&#21152;&#36733;</text></g>
+    <g filter="url(#cardShadow)"><rect x="944" y="444" width="200" height="32" rx="6" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+      <text x="1044" y="464" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="9.5" font-weight="600" fill="#1A73E8">CPU / Intel MKL</text></g>
+  </g>
+
+  <!-- &#21518;&#31471;&#23618;&#36830;&#32447;: Router &#8594; Backend -->
+  <path d="M 182 316 L 182 358" fill="none" stroke="#1A73E8" stroke-width="2" marker-end="url(#arrowSolid)"/>
+  <text x="192" y="340" font-family="Roboto, PingFang SC, sans-serif" font-size="9" font-weight="600" fill="#1A73E8">gRPC</text>
+  <path d="M 478 316 L 478 358" fill="none" stroke="#1A73E8" stroke-width="2" marker-end="url(#arrowSolid)"/>
+  <text x="488" y="340" font-family="Roboto, PingFang SC, sans-serif" font-size="9" font-weight="600" fill="#1A73E8">gRPC</text>
+  <path d="M 774 316 L 774 358" fill="none" stroke="#1A73E8" stroke-width="2" marker-end="url(#arrowSolid)"/>
+  <text x="784" y="340" font-family="Roboto, PingFang SC, sans-serif" font-size="9" font-weight="600" fill="#1A73E8">&#30452;&#25509;&#35843;&#29992;</text>
+  <path d="M 1044 316 L 1044 358" fill="none" stroke="#1A73E8" stroke-width="2" marker-end="url(#arrowSolid)"/>
+  <text x="1054" y="340" font-family="Roboto, PingFang SC, sans-serif" font-size="9" font-weight="600" fill="#1A73E8">&#30452;&#25509;&#35843;&#29992;</text>
+
+  <!-- ========== &#31532;&#22235;&#23618;&#65306;&#30828;&#20214;&#35774;&#22791;&#23618; ========== -->
+  <rect x="26" y="508" width="1148" height="100" rx="10" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+  <text x="44" y="528" font-family="Roboto, PingFang SC, sans-serif" font-size="11" font-weight="700" fill="#5F6368">&#30828;&#20214;&#35774;&#22791;&#23618;</text>
+
+  <!-- Ascend NPU -->
+  <g filter="url(#cardShadow)">
+    <rect x="44" y="538" width="276" height="56" rx="8" fill="#E8F0FE" stroke="#1A73E8" stroke-width="1.5"/>
+    <text x="182" y="562" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="13" font-weight="700" fill="#1A73E8">&#21326;&#20026;&#26119;&#33150; NPU</text>
+    <text x="182" y="582" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">Atlas 300I Pro &#183; Atlas A2 &#183; Atlas A3 &#183; ...</text>
+  </g>
+
+  <!-- NVIDIA GPU -->
+  <g filter="url(#cardShadow)">
+    <rect x="340" y="538" width="276" height="56" rx="8" fill="#FFFFFF" stroke="#1A73E8" stroke-width="1.2"/>
+    <text x="478" y="562" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="13" font-weight="700" fill="#1A73E8">NVIDIA GPU</text>
+    <text x="478" y="582" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">A100 &#183; A10 &#183; H100 &#183;...</text>
+  </g>
+
+  <!-- Intel HPU / XPU -->
+  <g filter="url(#cardShadow)">
+    <rect x="636" y="538" width="276" height="56" rx="8" fill="#FFFFFF" stroke="#1A73E8" stroke-width="1.2"/>
+    <text x="774" y="562" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="13" font-weight="700" fill="#1A73E8">Intel&#174; Gaudi</text>
+    <text x="774" y="582" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">HPU &#183; Habana SynapseAI</text>
+  </g>
+
+  <!-- CPU -->
+  <g filter="url(#cardShadow)">
+    <rect x="932" y="538" width="224" height="56" rx="8" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+    <text x="1044" y="562" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="13" font-weight="700" fill="#1A73E8">CPU</text>
+    <text x="1044" y="582" text-anchor="middle" font-family="Roboto, PingFang SC, sans-serif" font-size="10" fill="#5F6368">Intel MKL &#183; Apple Metal</text>
+  </g>
+
+  <!-- &#21518;&#31471;&#8594;&#30828;&#20214;&#36830;&#32447; -->
+  <path d="M 182 482 L 182 538" fill="none" stroke="#1A73E8" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrowDash)"/>
+  <path d="M 478 482 L 478 538" fill="none" stroke="#1A73E8" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrowDash)"/>
+  <path d="M 774 482 L 774 538" fill="none" stroke="#1A73E8" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrowDash)"/>
+  <path d="M 1044 482 L 1044 538" fill="none" stroke="#1A73E8" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrowDash)"/>
+
+  <!-- &#26381;&#21153;&#25509;&#20837;&#23618;&#8594;Router&#36830;&#32447; -->
+  <path d="M 214 162 L 214 188" fill="none" stroke="#1A73E8" stroke-width="2" marker-end="url(#arrowSolid)"/>
+  <path d="M 574 162 L 574 188" fill="none" stroke="#1A73E8" stroke-width="2" marker-end="url(#arrowSolid)"/>
+  <path d="M 960 162 L 960 188" fill="none" stroke="#5F6368" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrowDash)"/>
+
+</svg>

@@ -54,7 +54,7 @@ python3 text_embeddings_server/cli.py $MODEL_DIR/bge-large-zh-v1.5 (modify to yo
 # If logs show "Server started at unix://tmp/text-embeddings-server", the backend has started successfully
 ```
 
-## 3 NPU memory keeps growing under high concurrency
+## 3 NPU memory keeps growing under high concurrency or exists OOM problem
 
 - **Solution 1 (Recommended)** : Set a small value for the environment variable `-e MAX_CONCURRENT_REQUESTS` at service startup (e.g., 64), to limit the maximum concurrent requests.See reference: [CLI arguments](https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docs/source/en/cli_arguments.md)
 - **Solution 2** : Add the environment variable `-e CLEAN_NPU_CACHE=True` at container startup to clear NPU cache after each inference.Note: This may reduce inference performance.
