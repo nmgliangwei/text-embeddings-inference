@@ -63,7 +63,9 @@ TEI 提供了一个简单的样例，帮助用户快速体验部署文本嵌入�
 
 🔹 [许可证声明](./LICENSE)<br>
 🔹 [免责声明](./docs/zh/disclaimer.md)<br>
+🔹 [第三方开源软件声明](./Third_Party_Open_Source_Software_Notice)<br>
 如果有任何疑问或建议，请提交 [GitCode Issues](https://gitcode.com/Ascend/text-embeddings-inference/issues)，我们会尽快回复。感谢您的支持。
+
 
 ## 🔗 相关链接
 - [TEI 官方仓库](https://github.com/huggingface/text-embeddings-inference)
