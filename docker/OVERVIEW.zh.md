@@ -107,6 +107,7 @@ docker run \
 - 请根据实际情况替换 `<user>`、`<tag>`、`<model_name>`、`<listen_ip>`、`<listen_port>`为实际值。
 - 请确保宿主机上的模型文件与 `<model_name>` 匹配。
 - 容器默认以普通用户`HwHiAiUser`运行, 请确保HwHiAiUser用户有读写宿主机上模型权限，如需指定其他用户，请在运行容器时添加 `-u <user>` 参数。
+- （可选）`--security-opt="seccomp=unconfined"`：仅当容器内 TEI 服务启动失败（如报 `Operation not permitted`、`Permission denied` 或进程直接退出）时按需添加。该参数关闭默认 seccomp 安全配置，避免默认 profile 拦截 TEI/CANN 运行所需的系统调用（如 `clone3`）。仅关闭系统调用过滤，不影响 `--device` 设备隔离，可替代 `--privileged` 使用。详见 [FAQ 8](FAQ.zh.md#8-容器内服务启动失败需要添加-security-optseccompunconfined-参数)。
 - 请参考 [CLI arguments](https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docs/source/en/cli_arguments.md) 了解其他配置参数。
 
 ## 支持的模型列表和各模型特定参数说明
