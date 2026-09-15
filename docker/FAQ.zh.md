@@ -110,3 +110,24 @@ bash start.sh --model-id <模型2绝对路径>  --port <listen port2> &
 Error: `--max-batch-tokens` cannot be lower than the model `max_input_length` (32768 < 16384) when `--auto-truncate` is disabled
 
 解决方案：容器启动时配置 -e AUTO_TRUNCATE=True 开启自动截断, 具体[参考链接](https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docs/source/en/cli_arguments.md)
+
+## 8 容器内服务启动失败，需要添加 `--security-opt="seccomp=unconfined"` 参数
+
+现象：按文档命令启动容器后，容器内 TEI 服务启动失败或进程直接退出，报错可能为 `Operation not permitted`、`Permission denied`，或未见明显报错即退出（如 glibc/Python 多线程调用被默认 seccomp 配置拦截的 `clone3` 等系统调用）。
+
+可能原因：Docker 默认会给容器启用 seccomp 安全配置，屏蔽部分系统调用；TEI 依赖的 CANN 驱动栈、Python/torch_npu 后端初始化时会调用这些被屏蔽的系统调用，导致服务启动失败。该问题在 Docker/containerd 版本升级、CANN 版本变化，或从 `--privileged` 迁移到 `--device` 挂载方式后更容易出现。
+
+解决方案：容器启动命令中添加 `--security-opt="seccomp=unconfined"` 关闭默认 seccomp 配置：
+
+```bash
+docker run \
+    -u <user> \
+    --security-opt="seccomp=unconfined" \
+    --device /dev/davinci0 \
+    ...(其余参数与[快速开始](OVERVIEW.zh.md#运行-tei-容器)中的启动命令一致)
+```
+
+注意事项：
+
+- 该参数仅关闭系统调用过滤，不会授予设备访问等额外权限，仍建议通过 `--device` 精确挂载所需卡，不要与 `--privileged` 混用。
+- 与 `--privileged` 的区别：`--privileged` 会隐式关闭 seccomp 并授予容器几乎所有主机权限，且会导致多容器运行在第一张卡上（见 [FAQ 4](#4-启动多个容器时所有容器都在第一张卡上推理)）；`--security-opt="seccomp=unconfined"` 只关闭系统调用过滤，影响面更小。

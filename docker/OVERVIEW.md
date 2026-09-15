@@ -106,6 +106,7 @@ docker run -itd \
 - Please replace `<user>`、`<tag>`、`<model_name>`、`<listen_ip>`、`<listen_port>` with actual values according to your situation.
 - Please ensure that the model files on the host machine match `<model name>`.
 - The container runs by default as the regular user `HwHiAiUser`. Please make sure the HwHiAiUser has read and write permissions for the models on the host. If you need to specify a different user, add the `-u <user>` parameter when running the container.
+- (Optional) `--security-opt="seccomp=unconfined"`: add it only when the TEI service inside the container fails to start (e.g., `Operation not permitted`, `Permission denied`, or the process exits directly). It disables the default seccomp security profile, avoiding system calls required by TEI/CANN (e.g., `clone3`) being blocked. It only disables syscall filtering; it does not affect `--device` isolation and can be used as an alternative to `--privileged`. See [FAQ 8](FAQ.md#8-in-container-service-fails-to-start-and-requires-adding--security-optseccompunconfined).
 - Please refer to the [CLI arguments](https://gitcode.com/Ascend/text-embeddings-inference/blob/main/docs/source/en/cli_arguments.md) to learn other configuration parameters.
 
 ## List of supported models and explanations of specific parameters for each model
