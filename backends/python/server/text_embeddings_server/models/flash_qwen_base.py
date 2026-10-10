@@ -31,8 +31,12 @@ def apply_rotary_pos_emb_npu(q, k, cos, sin):
     cos = cos.reshape(1, -1, 1, head_dim).to(device=q.device, dtype=q.dtype)
     sin = sin.reshape(1, -1, 1, head_dim).to(device=q.device, dtype=q.dtype)
 
-    q = torch_npu.npu_rotary_mul(q, cos, sin)
-    k = torch_npu.npu_rotary_mul(k, cos, sin)
+    # 用原生算子实现 RoPE（与 HF 标准公式一致），避免 npu_rotary_mul 的 TBE 动态算子预编译
+    # 在部分环境（如 310P + CANN 9.0.0）下会静默失败（E40021，errormsg 为空）
+    rotate_q = torch.cat((-q[..., head_dim // 2 :], q[..., : head_dim // 2]), dim=-1)
+    rotate_k = torch.cat((-k[..., head_dim // 2 :], k[..., : head_dim // 2]), dim=-1)
+    q = q * cos + rotate_q * sin
+    k = k * cos + rotate_k * sin
 
     if q_is_tnd:
         q = q.squeeze(0)

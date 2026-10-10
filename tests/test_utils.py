@@ -75,57 +75,68 @@ def _start_service(model_id, port, env=None):
     return process
 
 
-def _kill_child_processes(pid):
-    """使用psutil递归终止子进程树"""
-    try:
-        import psutil
+def _collect_descendants(pid):
+    """通过 /proc 递归收集 pid 的所有子孙进程 id（Linux，不依赖 psutil）"""
+    def children_of(ppid):
+        result = []
         try:
-            parent = psutil.Process(pid)
-            children = parent.children(recursive=True)
-            for child in children:
+            for entry in os.listdir("/proc"):
+                if not entry.isdigit():
+                    continue
                 try:
-                    child.terminate()
-                except psutil.NoSuchProcess:
-                    pass
-            gone, alive = psutil.wait_procs(children, timeout=3)
-            for proc in alive:
-                try:
-                    proc.kill()
-                except psutil.NoSuchProcess:
-                    pass
-            parent.terminate()
-            parent.wait(timeout=3)
-        except psutil.NoSuchProcess:
+                    with open(f"/proc/{entry}/stat", "r") as f:
+                        stat = f.read()
+                except OSError:
+                    continue
+                # stat 格式: "pid (comm) state ppid ..."，comm 可能含空格/括号，从最后一个 ')' 之后解析
+                rp = stat.rfind(")")
+                if rp == -1:
+                    continue
+                fields = stat[rp + 1:].split()
+                if len(fields) >= 2 and fields[1] == str(ppid):
+                    result.append(int(entry))
+        except OSError:
             pass
-    except ImportError:
-        pass
+        return result
+
+    descendants = []
+    queue = [pid]
+    while queue:
+        current = queue.pop(0)
+        for child in children_of(current):
+            descendants.append(child)
+            queue.append(child)
+    return descendants
 
 
-def _kill_process_group(pid):
-    """使用进程组方式终止子进程"""
-    try:
-        os.killpg(os.getpgid(pid), signal.SIGTERM)
-    except (ProcessLookupError, OSError):
-        pass
+def _kill_processes(pids):
+    """先 SIGTERM 后 SIGKILL 终止一组进程"""
+    for pid in pids:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    time.sleep(1)
+    for pid in reversed(pids):
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
 
 
 def _stop_service(process):
-    """停止服务"""
+    """停止服务：先快照进程树再终止，确保子进程（router/python 后端）不残留"""
     if process and process.poll() is None:
+        # 先收集进程树快照，避免 bash 退出后子进程成为孤儿、无法按树清理
+        descendants = _collect_descendants(process.pid)
         process.terminate()
         try:
             process.wait(timeout=30)
         except subprocess.TimeoutExpired:
-            # 如果terminate超时，使用进程组方式终止
-            if hasattr(os, 'killpg'):
-                _kill_process_group(process.pid)
-                process.wait(timeout=10)
-            else:
-                process.kill()
-                process.wait()
+            process.kill()
+            process.wait(timeout=10)
         finally:
-            # 确保子进程被清理
-            _kill_child_processes(process.pid)
+            _kill_processes(descendants)
 
 
 def _make_test_class(model_id_, port_, env_=None, test_base_class=None, class_prefix="Test"):
@@ -134,7 +145,7 @@ def _make_test_class(model_id_, port_, env_=None, test_base_class=None, class_pr
     class_name = f"{class_prefix}_{model_name}"
 
     base_class = test_base_class or TestBase
-    
+
     class Cls(base_class):
         model_id = model_id_
         port = port_
