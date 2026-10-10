@@ -93,8 +93,8 @@ def serve(
                 UDSOpenTelemetryAioServerInterceptor(),
             ],
             options=[
-                ("grpc_max_send_message_length", 100 * 1024 * 1024),
-                ("grpc_max_recieve_message_length", 100 * 1024 * 1024),
+                ("grpc.max_send_message_length", 100 * 1024 * 1024),
+                ("grpc.max_receive_message_length", 100 * 1024 * 1024),
             ],
         )
         embed_pb2_grpc.add_EmbeddingServiceServicer_to_server(
