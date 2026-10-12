@@ -1,22 +1,27 @@
 name: docker-build
+
 on:
   push:
-    branches: [main]
-    tags: ["v*"]
+    branches: [ "main" ]
+    tags: [ "v*" ]
   workflow_dispatch:
 
 jobs:
-  build-910b:
-    name: 构建昇腾910B ubuntu
-    runs-on: [ubuntu-latest, arm64, large]
+  build-multi-arch:
+    name: Build amd64 & arm64 images
+    runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
-        uses: checkout
+        uses: actions/checkout@v4
 
-      - name: Set up QEMU/Buildx
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to quay
+      - name: Login to Quay.io
         uses: docker/login-action@v3
         with:
           registry: quay.io
@@ -28,6 +33,7 @@ jobs:
         with:
           context: .
           file: docker/Dockerfile.910b.ubuntu
+          platforms: linux/amd64,linux/arm64
           build-args: |
             CANN_VERSION=9.0.0
           push: true
