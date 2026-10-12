@@ -38,5 +38,5 @@ jobs:
             CANN_VERSION=9.0.0
           push: true
           tags: |
-            quay.io/liangwei/mis-tei:latest
-            quay.io/liangwei/mis-tei:26.0.2
+            quay.io/liangwei/mis-tei:910b-latest
+            quay.io/liangwei/mis-tei:26.0.2-910b-ubuntu22.04-py3.11
