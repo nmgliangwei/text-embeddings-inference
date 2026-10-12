@@ -30,9 +30,9 @@ RUN mkdir -p $HOME/.cargo && \
     echo '[source.crates-io]' > $HOME/.cargo/config.toml && \
     echo 'replace-with = "ustc"' >> $HOME/.cargo/config.toml && \
     echo '[source.ustc]' >> $HOME/.cargo/config.toml && \
-    echo 'registry = "https://mirrors.ustc.edu.cn/crates.io-index"' >> $HOME/.cargo/config.toml && \
+    echo 'registry = "sparse+https://mirrors.ustc.edu.cn/crates.io-index/"' >> $HOME/.cargo/config.toml && \
     echo '[registries.ustc]' >> $HOME/.cargo/config.toml && \
-    echo 'index = "https://mirrors.ustc.edu.cn/crates.io-index"' >> $HOME/.cargo/config.toml
+    echo 'index = "sparse+https://mirrors.ustc.edu.cn/crates.io-index/"' >> $HOME/.cargo/config.toml
 
 RUN git clone --depth 1 https://gitcode.com/Ascend/text-embeddings-inference.git && cd text-embeddings-inference
 RUN cd /home/HwHiAiUser/text-embeddings-inference && \
